@@ -1,2 +1,3 @@
 *.pyc
-setting.py
+settings.py
+args

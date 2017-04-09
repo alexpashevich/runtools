@@ -82,6 +82,9 @@ class RunMeta(object):
         # build script_dirname if it has not yet been created
         if not os.path.exists(self.oarsub_dirname):
             os.makedirs(self.oarsub_dirname)
+        # Build the script directory
+        if not os.path.exists(self.script_dirname):
+            os.makedirs(self.script_dirname)
         # create script_filename file
         cmd('touch ' + self.script_filename)
         # building the list of commands for the script
@@ -91,7 +94,11 @@ class RunMeta(object):
             for library in ['scipy']:
                 commands.append('sudo apt-get install python3-' + library + ' --yes')
         # launch a python exe
-        commands.append(' '.join([self.interpreter, self.path_exe] + self.run_argv))
+        if self.interpreter == '':
+            command_script = self.interpreter + self.path_exe
+        else:
+            command_script = self.interpreter + ' ' + self.path_exe
+        commands.append(' '.join([command_script] + self.run_argv))
         # script file delete itself when finished
         commands.append('rm ' + self.script_filename + '\n')
         # write into the bash script
