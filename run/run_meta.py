@@ -92,7 +92,11 @@ class RunMeta(object):
         for library in self.librairies_to_install:
             commands.append('sudo apt-get install ' + library + ' --yes')
         # launch a python exe
-        commands.append(' '.join([self.interpreter, self.path_exe] + self.run_argv))
+        if self.interpreter == '':
+            command_script = self.interpreter + self.path_exe
+        else:
+            command_script = self.interpreter + ' ' + self.path_exe
+        commands.append(' '.join([command_script] + self.run_argv))
         # script file delete itself when finished
         commands.append('rm ' + self.script_filename + '\n')
         # write into the bash script
