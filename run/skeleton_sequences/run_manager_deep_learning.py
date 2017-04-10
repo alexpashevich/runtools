@@ -12,7 +12,7 @@ from itertools import product
 runs = []
 
 """ COPY AREA"""
-run_prefix = 'two_stream_new'
+run_prefix = 'two_stream_we'
 idxs = [[0], [1], [1], [1]]
 
 restore = False
@@ -26,14 +26,14 @@ for idx in product(*idxs):
 
     # Training hyperparameters
     # TODO: add type of prediction, and regularization parameter
-    for batch_size, learning_rate, dropout_prob, clip_gradient_norm in product([256], [1e-4], [0.75], [0]):
+    for batch_size, learning_rate, dropout_prob, clip_gradient_norm in product([256], [5e-3, 5e-4], [0.5], [0]):
         argv2 = argv1[:] + ['batch_size=' + str(batch_size), 'learning_rate=' + str(learning_rate)]
         argv2 += ['clip_gradient_norm=' + str(clip_gradient_norm)]
 
         # Model hyperparameters
-        for rnn_units, rnn_layers, rnn_type in product([300], [2], ['gru']):
+        for rnn_units, rnn_layers, rnn_type in product([100, 300], [2, 4], ['gru', 'lstm']):
             argv3 = argv2[:]
-            # argv3.extend(['rnn_units=' + str(rnn_units), 'rnn_layers=' + str(rnn_layers), 'rnn_type=' + rnn_type])
+            argv3.extend(['rnn_units=' + str(rnn_units), 'rnn_layers=' + str(rnn_layers), 'rnn_type=' + rnn_type])
 
             """ END COPY AREA """
 
@@ -47,6 +47,6 @@ for idx in product(*idxs):
             job_name = run_prefix + run_prefix_suffix(argv3)
             evaluation_run_argv = argv3 + ['run_prefix=' + job_name]
             runs.extend(train_val_test_runs(train_run_argv, evaluation_run_argv, job_name,
-                                            machine='gpu', only_evaluating=True))
+                                            machine='gpu', only_evaluating=False))
 # print(len(runs) / 3)
 manage(runs)

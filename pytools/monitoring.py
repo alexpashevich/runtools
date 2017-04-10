@@ -50,7 +50,6 @@ if __name__ == '__main__':
                     for job in jobs:
                         # Monitoring only non interactive jobs
                         if (job.split(' ')[-2]).split('J=')[-1] != 'I':
-
                             # Extracting information and initializing a list for printing
                             job_number = job.split(' ')[0]
                             job_name = ''
@@ -63,6 +62,8 @@ if __name__ == '__main__':
                                 clear_list.append([job_name, job_number, duration])
 
                             # TODO:Let user write function to parse the OAR files, and display information during monitoring
+                        # with this kind of stuff we can open the OAR file:
+                        # os.path.join(OARSUB_DIRNAME, job_name, job_id + 'stderr')
 
             report_progress(clear_list, edgar_list)
             # Possibility to configure the refreshing time lapse

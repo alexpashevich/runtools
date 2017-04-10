@@ -8,7 +8,7 @@ EXAMPLE_PATH = os.path.join(HOME, 'src/tools/example')
 class RunExample(RunCPU):
     def __init__(self, run_argv):
         RunCPU.__init__(self, run_argv)
-        self.path_exe_run = os.path.join(EXAMPLE_PATH, 'path_exe_run_example.py')
+        self.path_exe = os.path.join(EXAMPLE_PATH, 'path_exe_example.py')
         self.job_name = 'example'
 
     @property

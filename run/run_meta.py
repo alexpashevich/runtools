@@ -12,8 +12,10 @@ class RunMeta(object):
         # Run settings
         self.machine_name = None
         self.besteffort = False
+        self.priority_level = 1
         self.interpreter = 'python'
         self.path_exe = None
+        self.librairies_to_install = []
         self.previous_jobs = []  # type: list[RunMeta]
         self.oarstat_check_frequency = 5
         # Internal settings (do not override these field)
@@ -80,19 +82,15 @@ class RunMeta(object):
         :param argv: parameters for the script to run
         """
         # build script_dirname if it has not yet been created
-        if not os.path.exists(self.oarsub_dirname):
-            os.makedirs(self.oarsub_dirname)
-        # Build the script directory
         if not os.path.exists(self.script_dirname):
             os.makedirs(self.script_dirname)
         # create script_filename file
         cmd('touch ' + self.script_filename)
         # building the list of commands for the script
         commands = list()
-        # install needed library on CPU node
-        if self.machine_name == 'clear':
-            for library in ['scipy']:
-                commands.append('sudo apt-get install python3-' + library + ' --yes')
+        # install libraries that have been specified
+        for library in self.librairies_to_install:
+            commands.append('sudo apt-get install ' + library + ' --yes')
         # launch a python exe
         if self.interpreter == '':
             command_script = self.interpreter + self.path_exe

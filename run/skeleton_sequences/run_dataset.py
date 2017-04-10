@@ -1,10 +1,9 @@
 from run.run_machine import RunCPU
-import os, sys
+import os
 from settings import HOME
 
 # Enable to parallelize, and accelerate the creation of datasets
 SKELETON_SEQUENCE_DATASET_WRITER_PATH = os.path.join(HOME, 'src/skeleton_sequences/tensorflow_datasets')
-PYTHON_INTERPRETER = 'python3'
 
 
 class RunDataset(RunCPU):
@@ -12,7 +11,8 @@ class RunDataset(RunCPU):
         RunCPU.__init__(self, run_argv)
         self.path_exe = os.path.join(SKELETON_SEQUENCE_DATASET_WRITER_PATH, 'preprocessed_dataset_writer.py')
         self.job_name = 'validation_test_joint'
-        self.interpreter = './'
+        self.interpreter = 'python3'
+        self.librairies_to_install = ['python3-scipy']
 
     @property
     def oarsub_options(self):
