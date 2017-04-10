@@ -70,11 +70,19 @@ def create_success_report_dir(args, exp_name):
     return args
 
 
-class RunExample(RunCPU):
+def parse_args_file(args_file):
+    args, exp_name, overwrite = read_args(args_file)
+    args, overwrite = create_temp_dir(args, exp_name, overwrite)
+    args = create_outworlds_dir(args, exp_name)
+    args = create_success_report_dir(args, exp_name)
+    return args, exp_name
+
+
+class RunQprop(RunCPU):
     def __init__(self, run_argv):
         RunCPU.__init__(self, run_argv, interpreter='')
         self.path_exe = os.path.join(SCRIPTS_PATH, 'qprop_mini.sh')
-        self.job_name = 'qprop_mini'
+        self.job_name = run_argv[0]
 
     @property
     def oarsub_options(self):
@@ -84,9 +92,5 @@ if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('Usage: python3 script.py <args_file>')
 
-    args, exp_name, overwrite = read_args(sys.argv[1])
-    args, overwrite = create_temp_dir(args, exp_name, overwrite)
-    args = create_outworlds_dir(args, exp_name)
-    args = create_success_report_dir(args, exp_name)
-
-    RunExample([exp_name, args]).run()
+    args, exp_name = parse_args_file(sys.argv[1])
+    RunQprop([exp_name, args]).run()
