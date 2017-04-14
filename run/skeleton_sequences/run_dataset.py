@@ -10,7 +10,7 @@ class RunDataset(RunCPU):
     def __init__(self, run_argv):
         RunCPU.__init__(self, run_argv)
         self.path_exe = os.path.join(SKELETON_SEQUENCE_DATASET_WRITER_PATH, 'preprocessed_dataset_writer.py')
-        self.job_name = 'validation_test_joint'
+        self.job_name = 'dataset_id_no_print'
         self.interpreter = 'python3'
         self.librairies_to_install = ['python3-scipy']
 
