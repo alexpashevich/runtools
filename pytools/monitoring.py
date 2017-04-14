@@ -1,35 +1,34 @@
 import subprocess as sp
 import os, sys
 from pytools.tools import cmd
-from settings import LOGIN, OARSUB_DIRNAME
+from settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OARSUB_DIRNAME
 import curses
 
-def report_progress(clear_list, edgar_list):
-    ''' Print nice formatted output using unix curses. '''
+
+def report_progress(machine_to_jobs_summary):
+    """ Print nice formatted output using unix curses. """
+    stdscr.clear()
     stdscr.addstr(0, 0, 'Monitoring...')
     counter = 1
-    for machine in ['edgar', 'clear']:
+    for machine, jobs_summary in machine_to_jobs_summary.items():
         stdscr.addstr(counter, 0, '### ' + machine + ' ###')
         counter += 1
-        if machine == 'edgar':
-            machine_list = edgar_list
-        else:
-            machine_list = clear_list
-        if len(machine_list) > 0:
-            max_name_length = max([len(x[0]) for x in machine_list])
-            max_number_length = max([len(x[1]) for x in machine_list])
-            max_duration_length = max([len(x[2]) for x in machine_list])
+        if len(jobs_summary) > 0:
+            max_name_length = max([len(x[0]) for x in jobs_summary])
+            max_number_length = max([len(x[1]) for x in jobs_summary])
+            max_duration_length = max([len(x[2]) for x in jobs_summary])
             template = "{0:%i} | {1:%i} | {2:%i}" % (max_name_length,
-                                                    max_number_length,
-                                                    max_duration_length)
-            for i in range(len(machine_list)):
-                line = template.format(*machine_list[i])
+                                                     max_number_length,
+                                                     max_duration_length)
+            for i in range(len(jobs_summary)):
+                line = template.format(*jobs_summary[i])
                 stdscr.addstr(counter + i, 0, line)
-            counter += len(machine_list)
+            counter += len(jobs_summary)
         else:
             stdscr.addstr(counter, 0, 'No jobs running\n')
             counter += 2
     stdscr.refresh()
+
 
 """ Monitor only the master"""
 
@@ -41,7 +40,9 @@ if __name__ == '__main__':
     try:
         while True:
             clear_list, edgar_list = [], []
-            for machine in ['edgar', 'clear']:
+            machines = [CPU_MACHINE, GPU_MACHINE]
+            machine_to_jobs_summary = {machine: [] for machine in machines}
+            for machine in machines:
                 try:
                     jobs = cmd("ssh " + machine + " 'oarstat | grep " + LOGIN + "'")
                 except sp.CalledProcessError as e:
@@ -56,21 +57,16 @@ if __name__ == '__main__':
                             if len(job.split('N=')) > 1 and len((job.split('N=')[1]).split(' (')) > 0:
                                 job_name = (job.split('N=')[1]).split(' (')[0]
                             duration = (job.split(' R=')[0]).split(' ')[-1]
-                            if machine == 'edgar':
-                                edgar_list.append([job_name, job_number, duration])
-                            else:
-                                clear_list.append([job_name, job_number, duration])
+                            machine_to_jobs_summary[machine].append([job_name, job_number, duration])
 
                             # TODO:Let user write function to parse the OAR files, and display information during monitoring
-                        # with this kind of stuff we can open the OAR file:
-                        # os.path.join(OARSUB_DIRNAME, job_name, job_id + 'stderr')
+                            # with this kind of stuff we can open the OAR file:
+                            # os.path.join(OARSUB_DIRNAME, job_name, job_id + 'stderr')
 
-            report_progress(clear_list, edgar_list)
-            # Possibility to configure the refreshing time lapse
-            if len(sys.argv) > 1:
-                cmd('sleep ' + sys.argv[1])
-            else:
-                cmd('sleep 10')
+            report_progress(machine_to_jobs_summary)
+            # Possibility to configure the refreshing time lapse, by passing an argument
+            cmd('sleep ' + sys.argv[1] if len(sys.argv) > 1 else 10)
+
     finally:
         curses.echo()
         curses.nocbreak()
