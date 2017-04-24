@@ -1,4 +1,4 @@
-from run.run_machine import RunCPU
+from run.job_machine import JobCPU
 import os, sys
 from settings import HOME
 from pytools.tools import cmd
@@ -78,15 +78,15 @@ def parse_args_file(args_file):
     return args, exp_name
 
 
-class RunQprop(RunCPU):
+class RunQprop(JobCPU):
     def __init__(self, run_argv):
-        RunCPU.__init__(self, run_argv, interpreter='')
+        JobCPU.__init__(self, run_argv, interpreter='')
         self.path_exe = os.path.join(SCRIPTS_PATH, 'qprop_mini.sh')
         self.job_name = run_argv[0]
 
     @property
     def oarsub_options(self):
-        return RunCPU(self).oarsub_options + ' -l "nodes=1/core=32,walltime=24:0:0"'
+        return JobCPU(self).oarsub_options + ' -l "nodes=1/core=32,walltime=24:0:0"'
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:

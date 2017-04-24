@@ -44,7 +44,7 @@ if __name__ == '__main__':
             machine_to_jobs_summary = {machine: [] for machine in machines}
             for machine in machines:
                 try:
-                    jobs = cmd("ssh " + machine + " 'oarstat | grep " + LOGIN + "'")
+                    jobs = cmd("ssh -X -Y " + machine + " 'oarstat | grep " + LOGIN + "'")
                 except sp.CalledProcessError as e:
                     jobs = []
                 if jobs != []:
