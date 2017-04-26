@@ -10,8 +10,10 @@ PROJECT_ROOT = os.path.join(HOME, 'src/tools')
 OAR_DIRNAME = os.path.join(HOME, 'OAR')
 OARSUB_DIRNAME = os.path.join(OAR_DIRNAME, 'oarsub')
 SCRIPT_DIRNAME = os.path.join(OAR_DIRNAME, 'script')
+CODE_DIRNAME = os.path.join(OAR_DIRNAME, 'code')
 
 # INRIA settings
 CPU_MACHINE = 'clear'
 GPU_MACHINE = 'edgar'
 MAX_DEFAULT_JOBS = {GPU_MACHINE: 2, CPU_MACHINE: 10}
+

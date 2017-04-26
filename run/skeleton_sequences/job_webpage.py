@@ -1,15 +1,16 @@
 from run.job_machine import JobCPU
 import os
-from settings import HOME
+from run.job_manager import manage
+from run.skeleton_sequences.job_deep_learning import SKELETON_SEQUENCES_PATH
 
-# Enable to parallelize, and accelerate the creation of datasets
-SKELETON_SEQUENCE_DATASET_WRITER_PATH = os.path.join(HOME, 'src/skeleton_sequences/skeleton_webpage/dataset_webpage')
+WEBPAGE_DIR = 'skeleton_webpage/dataset_webpage'
 
 
 class RunDataset(JobCPU):
     def __init__(self, run_argv):
         JobCPU.__init__(self, run_argv)
-        self.path_exe = os.path.join(SKELETON_SEQUENCE_DATASET_WRITER_PATH, 'dataset_html.py')
+        self.global_path_project = SKELETON_SEQUENCES_PATH
+        self.local_path_exe = os.path.join(WEBPAGE_DIR, 'dataset_html.py')
         self.job_name = 'webpage_skeleton'
         self.interpreter = 'python3'
 
@@ -19,4 +20,4 @@ class RunDataset(JobCPU):
 
 
 if __name__ == '__main__':
-    RunDataset([]).run()
+    manage([RunDataset([])])

@@ -33,7 +33,7 @@ def fork_run(argv):
     child1_run.add_previous_job(root_run)
     child2_run.add_previous_job(root_run)
     # Running
-    manage(runs)
+    manage(runs, only_initialization=False)
 
 
 if __name__ == '__main__':

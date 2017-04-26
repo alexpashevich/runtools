@@ -189,7 +189,8 @@ class JobMeta(object):
             options += ' -t besteffort -t idempotent'
         for symbol, supplementary_options in zip(['p', 'l'], [self.oarsub_p_options, self.oarsub_l_options]):
             if supplementary_options:
-                options.append('-' + symbol + ' ' + ' AND '.join(['"' + o + '"' for o in supplementary_options]) + '')
+                for option in supplementary_options:
+                    options.append('-' + symbol + ' "' + option + '"')
         return ' '.join(options)
 
     @property

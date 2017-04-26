@@ -5,7 +5,7 @@ from settings import LOGIN, MAX_DEFAULT_JOBS
 """ Class of functions that take a list of JobMeta as input """
 
 
-def manage(jobs, only_initialization=True, sleep_duration=10):
+def manage(jobs, only_initialization=True, sleep_duration=20):
     jobs_waiting_previous_jobs = jobs  # type: list[JobMeta]
     jobs_waiting_max_default_jobs = []  # type: list[JobMeta]
     # initialize jobs
