@@ -1,7 +1,8 @@
 import sys
 from run.skeleton_sequences.job_deep_learning import train_val_test_runs
 from run.job_manager import manage
-from argument_generator import main_argv, run_prefix_suffix
+sys.path.append('/home/lear/erleroux/src/skeleton_sequences')
+from tensorflow_runs.argument_generator import main_argv, run_prefix_suffix
 from itertools import product
 
 jobs = []
@@ -9,7 +10,7 @@ jobs = []
 only_initialization = False
 only_evaluating = False
 """ COPY AREA"""
-run_prefix = 'vch_2_va_baseline'
+run_prefix = 'vch_2_va_baseline_earlydecay'
 idxs = [['ntu_cs_3D'], ['s_trans'], ['joint'], [0], [0]]
 # idxs = [['ntu_cs_2D'], ['ntu_cs_2D'], ['joint'], [1], [0]]
 
@@ -31,7 +32,7 @@ for idx in product(*idxs):
         # argv2 += ['prediction_type=inattention', 'worst_prediction_nb=' + str(worst_prediction_nb)]
 
         # Model hyperparameters
-        for rnn_units, rnn_layers, rnn_type in product([100], [3], ['basic_lstm', 'lstm']):
+        for rnn_units, rnn_layers, rnn_type in product([100], [3], ['lstm']):
             argv3 = argv2[:]
             argv3.extend(['rnn_units=' + str(rnn_units), 'rnn_layers=' + str(rnn_layers), 'rnn_type=' + rnn_type])
 
