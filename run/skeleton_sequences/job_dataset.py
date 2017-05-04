@@ -10,8 +10,8 @@ class RunDataset(JobCPU):
     def __init__(self, run_argv):
         JobCPU.__init__(self, run_argv)
         self.global_path_project = SKELETON_SEQUENCES_PATH
-        self.local_path_exe = os.path.join(DATASET_WRITER_DIR, 'dataset_writer.py')
-        self.job_name = 'dataset_ntu3Dfix'
+        self.local_path_exe = os.path.join(DATASET_WRITER_DIR, 'dataset_generator.py')
+        self.job_name = 'trans_normalization_2'
         self.interpreter = 'python3'
         self.librairies_to_install = ['python3-scipy']
 
