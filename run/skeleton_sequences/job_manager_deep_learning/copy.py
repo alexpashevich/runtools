@@ -10,7 +10,7 @@ jobs = []
 only_initialization = False
 only_evaluating = False
 """ COPY AREA"""
-run_prefix = 'vch_3_va_baseline'
+run_prefix = 'vch_2_va_baseline_earlydecay_weig_300'
 idxs = [['ntu_cs_3D'], ['s_trans'], ['joint'], [0], [0]]
 # idxs = [['ntu_cs_2D'], ['ntu_cs_2D'], ['joint'], [1], [0]]
 
@@ -25,12 +25,11 @@ for idx in product(*idxs):
     # argv1.extend(['training_steps=1000000', 'summary_flush_rate=100', 'checkpoint_rate=100'])
 
     # Training hyperparameters
-    for patience_temporal_gap, learning_rate, actors_nb, mirror, switch, worst_prediction_nb, reg in product([500], [5e-3], [2], [False], [False], [1], [0.01, 0.001]):
+    for patience_temporal_gap, learning_rate, actors_nb, mirror, switch, worst_prediction_nb in product([300], [5e-3], [2], [True], [False], [1]):
         argv2 = argv1[:]
         # argv2 += ['patience_temporal_gap=' + str(patience_temporal_gap)]
-        argv2 += ['rnn_l2_regularization_constant=' + str(reg)]
         # argv2 += ['batch_size=' + str(batch_size), 'learning_rate=' + str(learning_rate)]
-        argv2 += ['rnn_dropout_prob=0.5']
+        argv2 += ['rnn_dropout_prob=0.5', 'l2_regularization_constant=0.01']
         argv2 += ['mirroring_left_right=' + str(mirror), 'switching_main_second_actor=' + str(switch)]
         # argv2 += ['prediction_type=inattention', 'worst_prediction_nb=' + str(worst_prediction_nb)]
 
