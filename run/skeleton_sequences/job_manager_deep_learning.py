@@ -10,8 +10,8 @@ jobs = []
 only_initialization = False
 only_evaluating = False
 """ COPY AREA"""
-run_prefix = 'vch_3_va_baseline'
-idxs = [['ntu_cs_3D'], ['s_trans'], ['joint'], [0], [0]]
+run_prefix = 'vch_3_skeletransf'
+idxs = [['ntu_cs_3D'], ['s_trans'], ['joint'], [0], [1]]
 # idxs = [['ntu_cs_2D'], ['ntu_cs_2D'], ['joint'], [1], [0]]
 
 restore = False
@@ -25,13 +25,23 @@ for idx in product(*idxs):
     # argv1.extend(['training_steps=1000000', 'summary_flush_rate=100', 'checkpoint_rate=100'])
 
     # Training hyperparameters
-    for patience_temporal_gap, learning_rate, actors_nb, mirror, switch, worst_prediction_nb, reg in product([500], [5e-3], [2], [False], [False], [1], [0.01, 0.001]):
+    for nb, reg1, reg2, patience_temporal_gap, learning_rate, actors_nb, mirror, switch, worst_prediction_nb, reg in \
+            product([25], [0.01, 0.1, 1, 10], [0.1, 0.01, 0.001, 0.0001], [1000], [5e-3], [2], [False], [False], [1], [0.001]):
         argv2 = argv1[:]
         # argv2 += ['patience_temporal_gap=' + str(patience_temporal_gap)]
-        argv2 += ['rnn_l2_regularization_constant=' + str(reg)]
+        # argv2 += ['rnn_l2_regularization_constant=' + str(reg), 'l2_regularization_constant=' + str(reg)]
         # argv2 += ['batch_size=' + str(batch_size), 'learning_rate=' + str(learning_rate)]
         argv2 += ['rnn_dropout_prob=0.5']
         argv2 += ['mirroring_left_right=' + str(mirror), 'switching_main_second_actor=' + str(switch)]
+
+
+
+        # Skeleton transformer part
+        # argv2 += ['skeleton_transformer_joints_nb=' + str(nb)]
+        argv2 += ['skeleton_transformer_lagrangian_regularization=' + str(reg1)]
+        argv2 += ['skeleton_transformer_sparse_row_regularization=' + str(reg2)]
+
+
         # argv2 += ['prediction_type=inattention', 'worst_prediction_nb=' + str(worst_prediction_nb)]
 
         # Model hyperparameters
