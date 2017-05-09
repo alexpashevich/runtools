@@ -6,12 +6,12 @@ from run.job_manager import manage
 DATASET_WRITER_DIR = 'tensorflow_datasets'
 
 
-class RunDataset(JobCPU):
+class JobDataset(JobCPU):
     def __init__(self, run_argv):
         JobCPU.__init__(self, run_argv)
         self.global_path_project = SKELETON_SEQUENCES_PATH
         self.local_path_exe = os.path.join(DATASET_WRITER_DIR, 'dataset_generator.py')
-        self.job_name = 'trans_normalization_2'
+        self.job_name = 'dali_translation'
         self.interpreter = 'python3'
         self.librairies_to_install = ['python3-scipy']
 
@@ -20,4 +20,4 @@ class RunDataset(JobCPU):
         return JobCPU(self).oarsub_l_options + ['nodes=1/core=32,walltime=20:0:0']
 
 if __name__ == '__main__':
-    manage([RunDataset([])], only_initialization=False)
+    manage([JobDataset([])], only_initialization=False)
