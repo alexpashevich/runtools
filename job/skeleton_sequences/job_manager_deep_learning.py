@@ -1,6 +1,6 @@
 import sys
-from run.skeleton_sequences.job_deep_learning import train_val_test_runs
-from run.job_manager import manage
+from job.skeleton_sequences.job_deep_learning import train_val_test_runs
+from job.job_manager import manage
 sys.path.append('/home/lear/erleroux/src/skeleton_sequences')
 from tensorflow_runs.argument_generator import main_argv, run_prefix_suffix
 from itertools import product

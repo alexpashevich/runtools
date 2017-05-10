@@ -1,6 +1,6 @@
 import sys
-from run.example.job_example import JobExample
-from run.job_manager import manage
+from job.example.job_example import JobExample
+from job.job_manager import manage
 
 
 def single_run(argv):

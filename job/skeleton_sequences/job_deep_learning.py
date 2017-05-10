@@ -1,4 +1,4 @@
-from run.job_machine import JobGPU, JobCPU
+from job.job_machine import JobGPU, JobCPU
 import sys, os
 
 SKELETON_SEQUENCES_PATH = '/home/lear/erleroux/src/skeleton_sequences'

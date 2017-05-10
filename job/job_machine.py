@@ -1,5 +1,5 @@
 from __future__ import absolute_import
-from run.job_meta import JobMeta
+from job.job_meta import JobMeta
 from settings import GPU_MACHINE, CPU_MACHINE
 
 

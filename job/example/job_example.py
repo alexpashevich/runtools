@@ -1,7 +1,7 @@
-from run.job_machine import JobCPU
+from job.job_machine import JobCPU
 import os
 from settings import HOME
-from run.job_manager import manage
+from job.job_manager import manage
 
 EXAMPLE_PATH = os.path.join(HOME, 'src/tools/run/example')
 

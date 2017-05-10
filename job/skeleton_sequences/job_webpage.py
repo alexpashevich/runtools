@@ -1,7 +1,7 @@
-from run.job_machine import JobCPU
+from job.job_machine import JobCPU
 import os
-from run.job_manager import manage
-from run.skeleton_sequences.job_deep_learning import SKELETON_SEQUENCES_PATH
+from job.job_manager import manage
+from job.skeleton_sequences.job_deep_learning import SKELETON_SEQUENCES_PATH
 
 WEBPAGE_DIR = 'skeleton_webpage/dataset_webpage'
 

@@ -1,4 +1,4 @@
-from run.job_meta import JobMeta
+from job.job_meta import JobMeta
 from pytools.tools import cmd
 from settings import LOGIN, MAX_DEFAULT_JOBS
 
