@@ -97,20 +97,22 @@ class JobMeta(object):
         # install libraries that have been specified
         for library in self.librairies_to_install:
             commands.append('sudo apt-get install ' + library + ' --yes')
-        # copy the whole project to launch into it from a local directory
-        if not os.path.exists(self.code_dirname):
-            os.makedirs(self.code_dirname)
-        new_global_path = os.path.join(self.code_dirname, os.path.basename(self.global_path_project))
-        if not os.path.exists(new_global_path):
-            command_copy_dir = 'cp -r ' + self.global_path_project + ' ' + self.code_dirname
-            print(command_copy_dir)
-            cmd(command_copy_dir)
-        new_path_exe = os.path.join(new_global_path, self.local_path_exe)
+        # # TO IMPROVE
+        #  copy the whole project to launch into it from a local directory
+        # if not os.path.exists(self.code_dirname):
+        #     os.makedirs(self.code_dirname)
+        # new_global_path = os.path.join(self.code_dirname, os.path.basename(self.global_path_project))
+        # if not os.path.exists(new_global_path):
+        #     command_copy_dir = 'cp -r ' + self.global_path_project + ' ' + self.code_dirname
+        #     print(command_copy_dir)
+        #     cmd(command_copy_dir)
+        # new_path_exe = os.path.join(new_global_path, self.local_path_exe)
+        path_exe = os.path.join(self.global_path_project, self.local_path_exe)
         # launch the main exe
         if self.interpreter == '':
-            command_script = self.interpreter + new_path_exe
+            command_script = self.interpreter + path_exe
         else:
-            command_script = self.interpreter + ' ' + new_path_exe
+            command_script = self.interpreter + ' ' + path_exe
         commands.append(' '.join([command_script] + self.run_argv))
         # script file delete itself when finished
         commands.append('rm ' + self.script_filename + '\n')
