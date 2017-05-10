@@ -11,7 +11,7 @@ class JobDataset(JobCPU):
         JobCPU.__init__(self, run_argv)
         self.global_path_project = SKELETON_SEQUENCES_PATH
         self.local_path_exe = os.path.join(DATASET_WRITER_DIR, 'dataset_generator.py')
-        self.job_name = 'gesture_dataset'
+        self.job_name = 'rotation_dataset'
         self.interpreter = 'python3'
         self.librairies_to_install = ['python3-scipy']
 

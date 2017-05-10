@@ -10,8 +10,8 @@ jobs = []
 only_initialization = False
 only_evaluating = False
 """ COPY AREA"""
-run_prefix = 'vch_4_baseline'
-idxs = [['ntu_cs_3D'], ['s_trans'], ['joint'], [1], [0]]
+run_prefix = 'motion_1'
+idxs = [['ntu_cs_3D'], ['lg_greg', 's_trans', 'f_trans', 's_trans_f_rota', 'f_trans_f_rota'], ['joint'], [0], [0]]
 # idxs = [['ntu_cs_2D'], ['ntu_cs_2D'], ['joint'], [1], [0]]
 
 restore = False
@@ -26,7 +26,7 @@ for idx in product(*idxs):
 
     # Training hyperparameters
     for patience_accuracy_gap, patience_temporal_gap, learning_rate, actors_nb, mirror, switch, reg in \
-            product([0.01], [2000, 4000], [5e-3], [2], [False], [False], [0.001]):
+            product([0.01], [3000], [5e-3], [2], [False], [False], [0.001]):
         argv2 = argv1[:]
         argv2 += ['patience_temporal_gap=' + str(patience_temporal_gap)]
         # argv2 += ['patience_accuracy_gap=' + str(patience_accuracy_gap)]
@@ -45,7 +45,7 @@ for idx in product(*idxs):
         # argv2 += ['prediction_type=inattention', 'worst_prediction_nb=' + str(worst_prediction_nb)]
 
         # Model hyperparameters
-        for rnn_units, rnn_layers, rnn_type in product([100], [3], ['gru', 'lstm']):
+        for rnn_units, rnn_layers, rnn_type in product([100], [3], ['lstm']):
             argv3 = argv2[:]
             argv3.extend(['rnn_units=' + str(rnn_units), 'rnn_layers=' + str(rnn_layers), 'rnn_type=' + rnn_type])
 
