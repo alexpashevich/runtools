@@ -33,7 +33,7 @@ class JobGPUTrain(JobGPU):
 
     @property
     def oarsub_l_options(self):
-        return JobGPU(self).oarsub_l_options + ['walltime=24:0:0']
+        return JobGPU(self).oarsub_l_options + ['walltime=48:0:0']
 
     # @property
     # def oarsub_p_options(self):
