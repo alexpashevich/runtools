@@ -66,7 +66,10 @@ def create_success_report_dir(args, exp_name):
         else:
             for f in os.listdir(success_report_dir):
                 f_path = os.path.join(success_report_dir, f)
-                shutil.rmtree(f_path)
+                if os.path.isfile(f_path):
+                    os.unlink(f_path)
+                elif os.path.isdir(f_path):
+                    shutil.rmtree(f_path)
     return args
 
 
@@ -86,7 +89,7 @@ class RunQprop(RunCPU):
 
     @property
     def oarsub_options(self):
-        return RunCPU(self).oarsub_options + ' -l "nodes=1/core=32,walltime=24:0:0"'
+        return RunCPU(self).oarsub_options + ' -l "nodes=1/core=16,walltime=24:0:0"'
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
