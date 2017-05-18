@@ -4,24 +4,31 @@ from pytools.tools import cmd
 from settings import EMAIL, SCRIPT_DIRNAME, OARSUB_DIRNAME
 
 
-class RunMeta(object):
+class JobMeta(object):
     def __init__(self, run_argv):
         self.run_argv = run_argv
         # Organization settings
         self.job_name = None
-        # Run settings
+        self.oarstat_check_frequency = 15
+        # Job settings
         self.machine_name = None
         self.besteffort = False
         self.priority_level = 1
         self.interpreter = 'python'
-        self.path_exe = None
+        self.global_path_project = None
+        self.local_path_exe = None
         self.librairies_to_install = []
-        self.previous_jobs = []  # type: list[RunMeta]
-        self.oarstat_check_frequency = 5
+        self.previous_jobs = []  # type: list[JobMeta]
         # Internal settings (do not override these field)
         self.job_crashed = False
         self.job_id = None
         self.script_filename_key = None
+
+    def initialization(self):
+        # print oarsub command
+        print(self.oarsub_command)
+        # script generation
+        self.generate_script()
 
     def run(self):
         """
@@ -36,14 +43,13 @@ class RunMeta(object):
                 self.job_crashed = True
                 break
         if not self.job_crashed:
-            # script generation
-            self.generate_script()
             # run a job with oarsub (its job_id is retrieved)
+            print(self.oarsub_command)
             self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
 
-    def add_previous_run(self, run):
-        assert run not in self.previous_jobs
-        self.previous_jobs.append(run)
+    def add_previous_job(self, job):
+        assert job not in self.previous_jobs
+        self.previous_jobs.append(job)
 
     @property
     def job_ended(self):
@@ -58,7 +64,7 @@ class RunMeta(object):
         # the job has been launched, we check if it is still running
         else:
             ended = True
-            oarstat_lines = cmd("ssh " + self.machine_name + " ' oarstat ' ")
+            oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
             for line in oarstat_lines:
                 if self.job_id in line:
                     ended = False
@@ -91,11 +97,22 @@ class RunMeta(object):
         # install libraries that have been specified
         for library in self.librairies_to_install:
             commands.append('sudo apt-get install ' + library + ' --yes')
-        # launch a python exe
+        # # TO IMPROVE
+        #  copy the whole project to launch into it from a local directory
+        # if not os.path.exists(self.code_dirname):
+        #     os.makedirs(self.code_dirname)
+        # new_global_path = os.path.join(self.code_dirname, os.path.basename(self.global_path_project))
+        # if not os.path.exists(new_global_path):
+        #     command_copy_dir = 'cp -r ' + self.global_path_project + ' ' + self.code_dirname
+        #     print(command_copy_dir)
+        #     cmd(command_copy_dir)
+        # new_path_exe = os.path.join(new_global_path, self.local_path_exe)
+        path_exe = os.path.join(self.global_path_project, self.local_path_exe)
+        # launch the main exe
         if self.interpreter == '':
-            command_script = self.interpreter + self.path_exe
+            command_script = self.interpreter + path_exe
         else:
-            command_script = self.interpreter + ' ' + self.path_exe
+            command_script = self.interpreter + ' ' + path_exe
         commands.append(' '.join([command_script] + self.run_argv))
         # script file delete itself when finished
         commands.append('rm ' + self.script_filename + '\n')
@@ -160,15 +177,26 @@ class RunMeta(object):
         # Finally add the script to launch
         command += ' "' + self.script_filename + '"'
         command += " '"
-        print(command)
         return command
 
     @property
     def oarsub_options(self):
-        options = ''
+        options = []
         if self.besteffort:
-            options += '-t besteffort -t idempotent'
-        return options + ' '
+            options += ' -t besteffort -t idempotent'
+        for symbol, supplementary_options in zip(['p', 'l'], [self.oarsub_p_options, self.oarsub_l_options]):
+            if supplementary_options:
+                for option in supplementary_options:
+                    options.append('-' + symbol + ' "' + option + '"')
+        return ' '.join(options)
+
+    @property
+    def oarsub_p_options(self):
+        return []
+
+    @property
+    def oarsub_l_options(self):
+        return []
 
     """ Management of the monitoring """
 
