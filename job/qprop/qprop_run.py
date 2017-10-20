@@ -73,11 +73,11 @@ class JobQprop(JobCPU):
 
     @property
     def oarsub_l_options(self):
-        return JobCPU(self).oarsub_l_options + ['nodes=1/core=16,walltime=24:0:0']
+        return JobCPU(self).oarsub_l_options + ['nodes=1/core=8,walltime=72:0:0']
 
 if __name__ == '__main__':
     if len(sys.argv) != 2:
         print('Usage: python3 script.py <args_file>')
 
     args, exp_name = parse_args_file(sys.argv[1])
-    manage([JobQprop([exp_name, args])], only_initialization=False)
+    manage([JobQprop([exp_name, args])], only_initialization=False, sleep_duration=3)

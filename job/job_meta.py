@@ -182,13 +182,14 @@ class JobMeta(object):
     @property
     def oarsub_options(self):
         options = []
-        if self.besteffort:
-            options += ' -t besteffort -t idempotent'
         for symbol, supplementary_options in zip(['p', 'l'], [self.oarsub_p_options, self.oarsub_l_options]):
             if supplementary_options:
                 for option in supplementary_options:
                     options.append('-' + symbol + ' "' + option + '"')
-        return ' '.join(options)
+        options_string = ' '.join(options)
+        if self.besteffort:
+            options_string += ' -t besteffort -t idempotent'
+        return options_string
 
     @property
     def oarsub_p_options(self):

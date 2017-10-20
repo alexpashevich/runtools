@@ -1,15 +1,15 @@
 import subprocess as sp
 import os, sys
 from pytools.tools import cmd
-from settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OARSUB_DIRNAME
+from settings import LOGIN, CPU_MACHINE, GPU_MACHINE, SHARED_CPU_MACHINE, OARSUB_DIRNAME
 import curses
 import argparse
 
 
 stdscr = curses.initscr()
-KEYWORDS = ['MaxReturn', 'AverageReturn', 'AvgLifted']
+KEYWORDS = ['AverageReturn', 'MaxReturn', 'MinDist', 'srS1', 'srS2', 'srG1', 'srG2']
 MAX_LENGTH = 80
-
+NB_DECIMAL = 3
 
 def tail(f, n):
     assert n >= 0
@@ -64,11 +64,16 @@ def report_progress(machine_to_jobs_summary):
 
 def cut_value(string, keyword):
     try:
-        begin = string.rfind(keyword)
+        begin = string.find(keyword)
         end = string[begin:].find('\n')
         string_temp = string[begin: begin + end]
         last_space = string_temp.rfind(' ')
-        return string_temp[last_space + 1:]
+        value = string_temp[last_space + 1:]
+        if value.find('.') > 0 and value.find('.') + NB_DECIMAL < len(value):
+            value = value[:value.find('.') + NB_DECIMAL]
+        if len(value) > 15:
+            return 'n/a'
+        return value
     except:
         return 'n/a'
 
@@ -78,7 +83,10 @@ def cut_itr(string):
         begin = string.rfind('itr #')
         string_temp = string[begin + 5:]
         end = string_temp.find('|')
-        return string_temp[:end - 1]
+        itr = string_temp[:end - 1].strip()
+        if len(itr) > 15:
+            return 'n/a'
+        return itr
     except:
         return 'n/a'
 
@@ -98,7 +106,7 @@ def monitor(argv):
     try:
         while True:
             clear_list, edgar_list = [], []
-            machines = [CPU_MACHINE, GPU_MACHINE]
+            machines = [CPU_MACHINE, GPU_MACHINE, SHARED_CPU_MACHINE]
             machine_to_jobs_summary = {machine: [] for machine in machines}
             for machine in machines:
                 try:
@@ -108,7 +116,7 @@ def monitor(argv):
 
                 job_list_titles = ['job_name', 'job_id', 'time', 'itr'] + KEYWORDS
                 machine_to_jobs_summary[machine].append(job_list_titles)
-                for job in jobs:
+                for job in sorted(jobs):
                     # Monitoring only non interactive jobs
                     if (job.split(' ')[-2]).split('J=')[-1] == 'I':
                         continue
@@ -117,9 +125,12 @@ def monitor(argv):
                     job_name = ''
                     if len(job.split('N=')) > 1 and len((job.split('N=')[1]).split(' (')) > 0:
                         job_name = (job.split('N=')[1]).split(' (')[0]
+                        if len(job_name.split(',')) > 1:
+                            job_name = job_name.split(',')[0]
                     duration = (job.split(' R=')[0]).split(' ')[-1]
                     job_list = [job_name, job_id, duration]
-                    oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
+                    # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
+                    oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
                     try:
                         oarout_list = tail(open(oarout, 'r'), 70)
                     except:
@@ -132,6 +143,10 @@ def monitor(argv):
                         # TODO: fix cutting when a job has just started
                     machine_to_jobs_summary[machine].append(job_list)
 
+            # TODO: refactor
+            if len(machine_to_jobs_summary['clear']) > 0:
+                jobs_clear = [machine_to_jobs_summary['clear'][0]] + sorted(machine_to_jobs_summary['clear'][1:])
+                machine_to_jobs_summary['clear'] = jobs_clear
             report_progress(machine_to_jobs_summary)
             # Possibility to configure the refreshing time lapse, by passing an argument
             cmd('sleep {}'.format(args.sleep))
