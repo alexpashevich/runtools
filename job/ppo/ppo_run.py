@@ -3,12 +3,13 @@ import sys
 import shutil
 import argparse
 
-from job.job_machine import JobCPU, JobSharedCPU
+from job.job_machine import JobCPU, JobGPU, JobSharedCPU
 from settings import HOME
 from pytools.tools import cmd
 from job.job_manager import manage
 
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
+RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
 
 
 def read_args(args_file):
@@ -18,6 +19,8 @@ def read_args(args_file):
     exp_name = 'default'
     overwrite = False
     for line in args_list:
+        if line[0] == '#':
+            continue
         args += line + ' '
         if '--exp=' in line:
             exp_name = line[line.find('--exp=') + len('--exp='):]
@@ -68,7 +71,7 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class):
     # log dir creationg
     args = create_log_dir(args, exp_name, seed)
     # adding the seed to arguments and exp_name
-    if '--seed=' not in args and nb_seeds > 1:
+    if '--seed=' not in args:
         args += ' --seed=%d' % seed
         exp_name += '-s%d' % seed
     else:
@@ -94,13 +97,20 @@ def run_job_local(args_file):
     os.system(script)
 
 
-def check_rendered_envs_file():
-    path = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
-    with open(path) as pyfile:
-        content = pyfile.read()
-        if content.replace('\n', '') == 'rendered_envs = []; reported_envs = []':
-            return True
-        return False
+# def check_rendered_envs_file():
+#     with open(RENDERED_ENVS_PATH) as pyfile:
+#         content = pyfile.read()
+#         if content.replace('\n', '') == 'rendered_envs = []; reported_envs = []':
+#             return True
+#         return False
+
+def rewrite_rendered_envs_file(make_render=False):
+    rendered_ids = '1' if make_render else ''
+    content = 'rendered_envs = [{}]; reported_envs = []'.format(rendered_ids)
+    with open(RENDERED_ENVS_PATH, 'r+') as pyfile:
+        pyfile.seek(0)
+        pyfile.write(content)
+        pyfile.truncate()
 
 def main():
     parser = argparse.ArgumentParser()
@@ -111,38 +121,57 @@ def main():
     parser.add_argument('-f', '--first_seed', type=int, default=1, required=False,
                         help='First seed value')
     parser.add_argument('-l', '--local', type=bool, default=False, required=False,
-                        help='Whether run training locally or on clear')
+                        help='Whether to run the training locally or on clear')
     parser.add_argument('-s', '--shared', type=bool, default=False, required=False,
-                        help='Whether run training on access1-sp')
+                        help='Whether to run the training on access1-sp')
+    parser.add_argument('-e', '--edgar', type=bool, default=False, required=False,
+                        help='Whether to run the training on edgar')
+    parser.add_argument('-r', '--render', type=bool, default=False, required=False,
+                        help='Whether to render the run (will run locally)')
     parser.add_argument('-c', '--nb_cores', type=int, default=8, required=False,
                         help='Number of cores to be used on the cluster')
-    parser.add_argument('--tf14', type=bool, default=False, required=False,
-                        help='Whether run the code using the updated tensorflow')
+    parser.add_argument('-w', '--wallclock', type=int, default=72, required=False,
+                        help='Job wall clock time to be set on the cluster')
+    # parser.add_argument('--tf14', type=bool, default=True, required=False,
+    #                     help='Whether to run the code using the updated tensorflow')
 
     args = parser.parse_args()
 
-    if not args.local:
-        if not check_rendered_envs_file():
-            print('ERROR: check your rendered_envs.py')
-            return
+    if args.render:
+        rewrite_rendered_envs_file(make_render=True)
+    else:
+        rewrite_rendered_envs_file(make_render=False)
+    if args.shared and args.edgar:
+        print('ERROR: both --edgar and --shared are True')
+        return
 
-    parent_job = JobCPU if args.shared == False else JobSharedCPU
+    if args.edgar:
+        parent_job = JobGPU
+        l_options = ['walltime={}:0:0'.format(args.wallclock)]
+    else:
+        if args.shared:
+            parent_job = JobSharedCPU
+        else:
+            parent_job = JobCPU
+        l_options = ['nodes=1/core={},walltime={}:0:0'.format(args.nb_cores, args.wallclock)]
+
     class JobPPO(parent_job):
         def __init__(self, run_argv):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
-            self.local_path_exe = 'ppo_mini.sh' if not args.tf14 else 'ppo_mini_tf14.sh'
+            self.local_path_exe = 'ppo_mini_tf14.sh' if not args.edgar else 'ppo_mini.sh'
             self.job_name = run_argv[0]
             self.interpreter = ''
         @property
         def oarsub_l_options(self):
-            return parent_job(self).oarsub_l_options + ['nodes=1/core={},walltime=72:0:0'.format(
-                args.nb_cores)]
+            return parent_job(self).oarsub_l_options + l_options
 
     create_parent_log_dir(args.file)
     cache_code_dir(args.file)
-    if args.local:
+    if args.local or args.render:
         run_job_local(args.file)
+        if args.render:
+            rewrite_rendered_envs_file(make_render=False)
     else:
         for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
             run_job_cluster(args.file, seed, args.nb_seeds, JobPPO)
