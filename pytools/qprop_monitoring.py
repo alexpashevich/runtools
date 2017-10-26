@@ -78,6 +78,7 @@ def cut_value(string, keyword):
         return 'n/a'
 
 
+# TODO: delete (depricated)
 def cut_itr(string):
     try:
         begin = string.rfind('itr #')
@@ -90,6 +91,20 @@ def cut_itr(string):
     except:
         return 'n/a'
 
+def cut_step(string):
+    try:
+        substring = 'global step '
+        begin = string.rfind(substring)
+        string_temp = string[begin + len(substring):]
+        end = string_temp.find(')')
+        step = string_temp[:end].strip()
+        if len(step) > 15:
+            return 'n/a'
+        if len(step) > 3:
+            step = step[:-3] + 'K'
+        return step
+    except:
+        return 'n/a'
 
 def monitor(argv):
     ''' Monitor only the master. '''
@@ -137,7 +152,7 @@ def monitor(argv):
                         continue
 
                     oarout_string = ' '.join(oarout_list)
-                    job_list.append(cut_itr(oarout_string))
+                    job_list.append(cut_step(oarout_string))
                     for keyword in KEYWORDS:
                         job_list.append(cut_value(oarout_string, keyword))
                         # TODO: fix cutting when a job has just started
