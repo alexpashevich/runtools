@@ -2,6 +2,7 @@ import os
 import sys
 import shutil
 import argparse
+import datetime
 
 from job.job_machine import JobCPU, JobGPU, JobSharedCPU
 from settings import HOME
@@ -10,6 +11,7 @@ from job.job_manager import manage
 
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
+TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
 
 def read_args(args_file):
@@ -21,12 +23,27 @@ def read_args(args_file):
     for line in args_list:
         if line[0] == '#':
             continue
+        if ' ' in line:
+            print('WARNING: space(s) was found in {}, erased'.format(line))
+            line = line.replace(' ', '')
         args += line + ' '
         if '--exp=' in line:
             exp_name = line[line.find('--exp=') + len('--exp='):]
         if '--overwrite=True' in line:
             overwrite = True
     return args, exp_name, overwrite
+
+
+def append_args(args, extra_args):
+    for extra_arg in extra_args:
+        arg_key = extra_arg[:extra_arg.find('=')+1]
+        if arg_key in args:
+            begin_arg = args.find(arg_key)
+            end_arg = args[begin_arg:].find(' ')
+            args = args[:begin_arg] + extra_arg + args[begin_arg+end_arg:]
+        else:
+            args += ' --' + extra_arg
+    return args
 
 
 def cache_code_dir(args_file):
@@ -66,8 +83,9 @@ def create_log_dir(args, exp_name, seed):
     return args
 
 
-def run_job_cluster(args_file, seed, nb_seeds, job_class):
+def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args):
     args, exp_name, _ = read_args(args_file)
+    args = append_args(args, extra_args)
     # log dir creationg
     args = create_log_dir(args, exp_name, seed)
     # adding the seed to arguments and exp_name
@@ -78,6 +96,8 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class):
         if '--seed=' in args and nb_seeds > 1:
             raise ValueError(('gridsearch over seeds is launched while a seed is already' +
                                 'specified in the argument file'))
+    if '--timestamp=' not in args:
+        args += ' --timestamp={}'.format(TIMESTAMP)
     # creating symbolik link to the folder with code
     create_link(args_file, exp_name)
     # running the job
@@ -85,11 +105,15 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class):
     print('...\n...\n...\n')
 
 
-def run_job_local(args_file):
+def run_job_local(args_file, extra_args):
     args, exp_name, _ = read_args(args_file)
+    args = append_args(args, extra_args)
     # log dir creationg
     seed = 0
     args = create_log_dir(args, exp_name, seed)
+    # TODO: delete timestamp from here
+    if '--timestamp=' not in args:
+        args += ' --timestamp={}'.format(TIMESTAMP)
     # running the script
     os.chdir('/home/thoth/apashevi/Code/agents/')
     script = 'python3 -m agents.scripts.train ' + args
@@ -116,6 +140,9 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('file', type=str,
                         help='File with argument to feed into the PPO training')
+    # extra args provided in format "num_agents=8" (without two dashes)
+    parser.add_argument('extra_args', type=str, nargs='*',
+                        help='Additional arguments to be appended to the config arg.')
     parser.add_argument('-n', '--nb_seeds', type=int, default=1, required=False,
                         help='Number of seeds to run training with')
     parser.add_argument('-f', '--first_seed', type=int, default=1, required=False,
@@ -128,6 +155,8 @@ def main():
                         help='Whether to run the training on edgar')
     parser.add_argument('-r', '--render', type=bool, default=False, required=False,
                         help='Whether to render the run (will run locally)')
+    parser.add_argument('-b', '--besteffort', type=bool, default=False, required=False,
+                        help='Whether to run in besteffort mode')
     parser.add_argument('-c', '--nb_cores', type=int, default=8, required=False,
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72, required=False,
@@ -159,9 +188,10 @@ def main():
         def __init__(self, run_argv):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
-            self.local_path_exe = 'ppo_mini_tf14.sh' if not args.edgar else 'ppo_mini.sh'
+            self.local_path_exe = 'ppo_mini.sh' if not args.shared else 'ppo_mini_tf14.sh'
             self.job_name = run_argv[0]
             self.interpreter = ''
+            self.besteffort = args.besteffort
         @property
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
@@ -169,12 +199,12 @@ def main():
     create_parent_log_dir(args.file)
     cache_code_dir(args.file)
     if args.local or args.render:
-        run_job_local(args.file)
+        run_job_local(args.file, args.extra_args)
         if args.render:
             rewrite_rendered_envs_file(make_render=False)
     else:
         for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
-            run_job_cluster(args.file, seed, args.nb_seeds, JobPPO)
+            run_job_cluster(args.file, seed, args.nb_seeds, JobPPO, args.extra_args)
 
 if __name__ == '__main__':
     main()
