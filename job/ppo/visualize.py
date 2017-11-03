@@ -1,41 +1,44 @@
 import os
-import sys
 import argparse
 import shutil
-import importlib
-from pytools.tools import cmd
-from settings import CODE_DIRNAME
-from copy import copy
-import agents.scripts.visualize as visualizer
+import json
+
 import tensorflow as tf
+
+from pytools.tools import cmd
+from job.ppo import utils
+
 
 def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('logdir', type=str,
-                        help='Logdir with checkpoints.')
-    parser.add_argument('-s0', '--render_seed0', type=bool, default=False, required=False,
+                        help='Logdir with checkpoints (seed folder).')
+    parser.add_argument('-s0', '--render_seed0', type=utils.str2bool, default=False, required=False,
                         help='Whether to render the seed0 policies.')
+    parser.add_argument('-o', '--only_seeds', type=str, default=None, required=False,
+                        help='List of seeds to render in Json format (default = all).')
 
     args = parser.parse_args()
+
     # clear path from local codes of agents and rlgrasp
-    sys_path_clean = []
-    for path in sys.path:
-        if CODE_DIRNAME not in path:
-            sys_path_clean.append(path)
-    exp_name_general = os.path.basename(os.path.normpath(args.logdir))
+    sys_path_clean = utils.get_sys_path_clean()
+    # set correct python path
+    utils.change_sys_path(sys_path_clean, args.logdir)
+    import agents.scripts.visualize as visualizer
+
     outdirs = []
+    if args.only_seeds:
+        seed_list = json.loads(args.only_seeds)
+    else:
+        seed_list = None
 
     for seed_folder in next(os.walk(args.logdir))[1]:
         if 'seed' not in seed_folder:
             continue
         if seed_folder == 'seed0' and not args.render_seed0:
             continue
-        # set correct python path
-        sys.path = copy(sys_path_clean)
-        exp_name = exp_name_general + '-' + seed_folder.replace('seed', 's')
-        cachedir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Links/", exp_name)
-        sys.path.append(os.path.join(cachedir, 'agents'))
-        sys.path.append(os.path.join(cachedir, 'rlgrasp'))
+        if seed_list is not None and int(seed_folder.replace('seed', '')) not in seed_list:
+            continue
 
         timestamp_folders = next(os.walk(os.path.join(args.logdir, seed_folder)))[1]
         if len(timestamp_folders) > 1:
@@ -49,12 +52,8 @@ def main():
             shutil.rmtree(finaloutdir)
         os.makedirs(finaloutdir)
         outdirs.append(finaloutdir)
-        script = 'python3 -m agents.scripts.visualize --logdir={} --outdir={}'.format(finallogdir,
-                                                                                      finaloutdir)
-        importlib.reload(visualizer)
         visualizer.visualize(finallogdir, finaloutdir, num_agents=4, num_episodes=8,
                   checkpoint=None, env_processes=True)
-        # cmd(script)
         cmd('rm {}/*.manifest.json'.format(finaloutdir))
         cmd('rm {}/*.meta.json'.format(finaloutdir))
         tf.reset_default_graph()

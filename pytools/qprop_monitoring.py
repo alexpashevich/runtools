@@ -102,6 +102,8 @@ def cut_step(string):
             return 'n/a'
         if len(step) > 3:
             step = step[:-3] + 'K'
+            if len (step) > 4:
+                step = step[:-4] + '.' + step[-4:]
         return step
     except:
         return 'n/a'
