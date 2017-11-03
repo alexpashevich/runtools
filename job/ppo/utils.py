@@ -85,6 +85,7 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp)
     # adding the seed to arguments and exp_name
     if '--seed=' not in args:
         args += ' --seed=%d' % seed
+        exp_name += '-s%d' % seed
     else:
         if '--seed=' in args and nb_seeds > 1:
             raise ValueError(('gridsearch over seeds is launched while a seed is already' +
@@ -93,7 +94,7 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp)
         args += ' --timestamp={}'.format(timestamp)
     # running the job
     manage([job_class([exp_name, args])], only_initialization=False, sleep_duration=3)
-    print('...\n...\n...\n')
+    print('...\n...\n...')
 
 
 def run_job_local(args_file, extra_args):

@@ -23,6 +23,7 @@ def main():
     with config.unlocked:
         config.num_agents = 8
 
+    import pudb; pudb.set_trace()
     exp_name = os.path.basename(exp_path)
     rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
     utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)
