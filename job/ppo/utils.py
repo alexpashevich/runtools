@@ -5,8 +5,10 @@ from copy import copy
 
 from pytools.tools import cmd
 from job.job_manager import manage
-from settings import CODE_DIRNAME
+from job.job_machine import JobCPU, JobGPU, JobSharedCPU
+from settings import CODE_DIRNAME, HOME
 
+SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
 
 def read_args(args_file):
@@ -48,14 +50,20 @@ def append_args(args, extra_args):
     return args
 
 
-def cache_code_dir(args_file):
+def cache_code_dir(args_file, sym_link=False):
     _, exp_name, _ = read_args(args_file)
     cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     if os.path.exists(cache_dir):
-        shutil.rmtree(cache_dir)
-    os.makedirs(cache_dir)
-    cmd('cp -R /home/thoth/apashevi/Code/rlgrasp {}/'.format(cache_dir))
-    cmd('cp -R /home/thoth/apashevi/Code/agents {}/'.format(cache_dir))
+        if not os.path.islink(cache_dir):
+            shutil.rmtree(cache_dir)
+        else:
+            os.unlink(cache_dir)
+    if not sym_link:
+        os.makedirs(cache_dir)
+        cmd('cp -R /home/thoth/apashevi/Code/rlgrasp {}/'.format(cache_dir))
+        cmd('cp -R /home/thoth/apashevi/Code/agents {}/'.format(cache_dir))
+    else:
+        os.symlink('/home/thoth/apashevi/Code', cache_dir)
 
 
 def create_parent_log_dir(args_file):
@@ -142,3 +150,32 @@ def str2bool(v):
         return False
     else:
         raise TypeError('Boolean value expected.')
+
+def get_job(cluster, besteffort=False, nb_cores=8, wallclock=72):
+    if cluster == 'edgar':
+        parent_job = JobGPU
+        path_exe = 'ppo_mini.sh'
+        l_options = ['walltime={}:0:0'.format(wallclock)]
+    elif cluster == 'clear':
+        parent_job = JobCPU
+        path_exe = 'ppo_mini.sh'
+        l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
+    elif cluster == 'access1-cp':
+        path_exe = 'ppo_mini_tf14.sh'
+        parent_job = JobSharedCPU
+        l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
+    else:
+        raise ValueError('unknown cluster = {}'.format(cluster))
+
+    class JobPPO(parent_job):
+        def __init__(self, run_argv):
+            parent_job.__init__(self, run_argv)
+            self.global_path_project = SCRIPTS_PATH
+            self.local_path_exe = path_exe
+            self.job_name = run_argv[0]
+            self.interpreter = ''
+            self.besteffort = besteffort
+        @property
+        def oarsub_l_options(self):
+            return parent_job(self).oarsub_l_options + l_options
+    return JobPPO

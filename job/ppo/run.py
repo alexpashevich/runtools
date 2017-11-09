@@ -2,11 +2,8 @@ import os
 import argparse
 import datetime
 
-from settings import HOME
-from job.job_machine import JobCPU, JobGPU, JobSharedCPU
 from job.ppo import utils
 
-SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
 def main():
@@ -30,7 +27,7 @@ def main():
                         help='Whether to render the run (will run locally)')
     parser.add_argument('-b', '--besteffort', type=utils.str2bool, default=False, required=False,
                         help='Whether to run in besteffort mode')
-    parser.add_argument('-c', '--nb_cores', type=int, default=8, required=False,
+    parser.add_argument('-nc', '--nb_cores', type=int, default=8, required=False,
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72, required=False,
                         help='Job wall clock time to be set on the cluster')
@@ -42,35 +39,21 @@ def main():
     if args.shared and args.edgar:
         print('ERROR: both --edgar and --shared are True')
         return
-    if args.edgar:
-        parent_job = JobGPU
-        l_options = ['walltime={}:0:0'.format(args.wallclock)]
-    else:
-        if args.shared:
-            parent_job = JobSharedCPU
-        else:
-            parent_job = JobCPU
-        l_options = ['nodes=1/core={},walltime={}:0:0'.format(args.nb_cores, args.wallclock)]
-
-    class JobPPO(parent_job):
-        def __init__(self, run_argv):
-            parent_job.__init__(self, run_argv)
-            self.global_path_project = SCRIPTS_PATH
-            self.local_path_exe = 'ppo_mini.sh' if not args.shared else 'ppo_mini_tf14.sh'
-            self.job_name = run_argv[0]
-            self.interpreter = ''
-            self.besteffort = args.besteffort
-        @property
-        def oarsub_l_options(self):
-            return parent_job(self).oarsub_l_options + l_options
 
     utils.create_parent_log_dir(args.file)
-    utils.cache_code_dir(args.file)
+    utils.cache_code_dir(args.file, sym_link=(args.local or args.render))
     if args.local or args.render:
         utils.run_job_local(args.file, args.extra_args)
         if args.render:
             utils.rewrite_rendered_envs_file(make_render=False)
     else:
+        if args.edgar:
+            cluster = 'edgar'
+        elif args.shared:
+            cluster = 'shared'
+        else:
+            cluster = 'clear'
+        JobPPO = utils.get_job(cluster, args.besteffort, args.nb_cores, args.wallclock)
         for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
             utils.run_job_cluster(args.file, seed, args.nb_seeds, JobPPO, args.extra_args, TIMESTAMP)
 

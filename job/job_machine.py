@@ -11,8 +11,9 @@ class JobGPU(JobMeta):
 
     @property
     def oarsub_p_options(self):
-        return JobMeta(self).oarsub_p_options + ['not host=\'\"\'\"\'gpuhost6\'\"\'\"\'']
-        # return JobMeta(self).oarsub_p_options + ['gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\'']
+        # return JobMeta(self).oarsub_p_options + ['not host=\'\"\'\"\'gpuhost13\'\"\'\"\'']
+        return JobMeta(self).oarsub_p_options + ['gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x\'\"\'\"\' or gpumodel=\'\"\'\"\'gtx1080_ti\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_xp\'\"\'\"\'']
+        # return JobMeta(self).oarsub_p_options
 
 
 class JobCPU(JobMeta):
