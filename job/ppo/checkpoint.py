@@ -27,6 +27,7 @@ def main():
     parser.add_argument('-w', '--wallclock', type=int, default=72, required=False,
                         help='Job wall clock time to be set on the cluster')
     args = parser.parse_args()
+    # TODO: check rendered_envs.py if running nor locally
 
     sys_path_clean = utils.get_sys_path_clean()
     seed_path, timestamp_dir = os.path.split(os.path.normpath(args.exp_path))

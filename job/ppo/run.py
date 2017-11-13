@@ -29,7 +29,7 @@ def main():
                         help='Whether to run in besteffort mode')
     parser.add_argument('-nc', '--nb_cores', type=int, default=8, required=False,
                         help='Number of cores to be used on the cluster')
-    parser.add_argument('-w', '--wallclock', type=int, default=72, required=False,
+    parser.add_argument('-w', '--wallclock', type=int, default=None, required=False,
                         help='Job wall clock time to be set on the cluster')
     # parser.add_argument('--tf14', type=bool, default=True, required=False,
     #                     help='Whether to run the code using the updated tensorflow')
@@ -50,7 +50,7 @@ def main():
         if args.edgar:
             cluster = 'edgar'
         elif args.shared:
-            cluster = 'shared'
+            cluster = 'access1-cp'
         else:
             cluster = 'clear'
         JobPPO = utils.get_job(cluster, args.besteffort, args.nb_cores, args.wallclock)

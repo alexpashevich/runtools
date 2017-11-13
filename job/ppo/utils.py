@@ -36,7 +36,7 @@ def get_arg_val_idxs(args, arg_key):
     end_idx = args[begin_idx:].find(' ')
     if end_idx == -1:
         end_idx = len(args) - begin_idx
-    return begin_idx+len(arg_key), begin_idx+end_idx
+    return begin_idx, begin_idx+end_idx
 
 
 def append_args(args, extra_args):
@@ -151,18 +151,21 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(cluster, besteffort=False, nb_cores=8, wallclock=72):
+def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
     if cluster == 'edgar':
         parent_job = JobGPU
         path_exe = 'ppo_mini.sh'
+        wallclock = 12 if wallclock is None else wallclock
         l_options = ['walltime={}:0:0'.format(wallclock)]
     elif cluster == 'clear':
         parent_job = JobCPU
         path_exe = 'ppo_mini.sh'
+        wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
     elif cluster == 'access1-cp':
         path_exe = 'ppo_mini_tf14.sh'
         parent_job = JobSharedCPU
+        wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
     else:
         raise ValueError('unknown cluster = {}'.format(cluster))
@@ -179,3 +182,7 @@ def get_job(cluster, besteffort=False, nb_cores=8, wallclock=72):
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
     return JobPPO
+
+def print_ckpt(path):
+    from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
+    print_tensors_in_checkpoint_file(file_name=path, tensor_name='', all_tensors=False)
