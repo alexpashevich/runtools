@@ -19,8 +19,8 @@ def main():
                         help='First seed value')
     parser.add_argument('-l', '--local', type=utils.str2bool, default=False, required=False,
                         help='Whether to run the training locally or on clear')
-    parser.add_argument('-s', '--shared', type=utils.str2bool, default=False, required=False,
-                        help='Whether to run the training on access1-sp')
+    # parser.add_argument('-s', '--shared', type=utils.str2bool, default=False, required=False,
+    #                     help='Whether to run the training on access1-sp')
     parser.add_argument('-e', '--edgar', type=utils.str2bool, default=False, required=False,
                         help='Whether to run the training on edgar')
     parser.add_argument('-r', '--render', type=utils.str2bool, default=False, required=False,
@@ -36,9 +36,9 @@ def main():
     args = parser.parse_args()
 
     utils.rewrite_rendered_envs_file(make_render=args.render)
-    if args.shared and args.edgar:
-        print('ERROR: both --edgar and --shared are True')
-        return
+    # if args.shared and args.edgar:
+    #     print('ERROR: both --edgar and --shared are True')
+    #     return
 
     utils.create_parent_log_dir(args.file)
     utils.cache_code_dir(args.file, sym_link=(args.local or args.render))
@@ -49,10 +49,8 @@ def main():
     else:
         if args.edgar:
             cluster = 'edgar'
-        elif args.shared:
-            cluster = 'access1-cp'
         else:
-            cluster = 'clear'
+            cluster = 'access1-cp'
         JobPPO = utils.get_job(cluster, args.besteffort, args.nb_cores, args.wallclock)
         for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
             utils.run_job_cluster(args.file, seed, args.nb_seeds, JobPPO, args.extra_args, TIMESTAMP)

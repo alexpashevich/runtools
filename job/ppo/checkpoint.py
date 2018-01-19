@@ -40,7 +40,7 @@ def main():
         from agents.scripts import utility
         config = utility.load_config(args.exp_path)
         with config.unlocked:
-            config.num_agents = 8
+            config.num_agents = 64
 
         rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
         utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)
