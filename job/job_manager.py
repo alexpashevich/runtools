@@ -9,10 +9,10 @@ def manage(jobs, only_initialization=True, sleep_duration=20):
     jobs_waiting_previous_jobs = jobs  # type: list[JobMeta]
     jobs_waiting_max_default_jobs = []  # type: list[JobMeta]
     # initialize jobs
-    print('Start Initialization')
+    # print('Start Initialization')
     for job in jobs_waiting_previous_jobs:
         job.initialization()
-    print('End Initialization')
+    # print('End Initialization')
     if not only_initialization:
         while jobs_waiting_previous_jobs != [] or jobs_waiting_max_default_jobs != []:
             # runs waiting because of previous jobs

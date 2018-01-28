@@ -7,7 +7,8 @@ import argparse
 
 
 stdscr = curses.initscr()
-KEYWORDS = ['AverageReturn', 'MaxReturn', 'MinDist', 'srS1', 'srS2', 'srG1', 'srG2']
+# KEYWORDS = ['AverageReturn', 'MaxReturn', 'MinDist', 'srS1', 'srS2', 'srG1', 'srG2']
+KEYWORDS = []
 MAX_LENGTH = 80
 NB_DECIMAL = 3
 
@@ -123,7 +124,7 @@ def monitor(argv):
     try:
         while True:
             clear_list, edgar_list = [], []
-            machines = [CPU_MACHINE, GPU_MACHINE, SHARED_CPU_MACHINE]
+            machines = [GPU_MACHINE, SHARED_CPU_MACHINE]
             machine_to_jobs_summary = {machine: [] for machine in machines}
             for machine in machines:
                 try:
@@ -161,9 +162,9 @@ def monitor(argv):
                     machine_to_jobs_summary[machine].append(job_list)
 
             # TODO: refactor
-            if len(machine_to_jobs_summary['clear']) > 0:
-                jobs_clear = [machine_to_jobs_summary['clear'][0]] + sorted(machine_to_jobs_summary['clear'][1:])
-                machine_to_jobs_summary['clear'] = jobs_clear
+            if len(machine_to_jobs_summary['access1-cp']) > 0:
+                jobs_cpu = [machine_to_jobs_summary['access1-cp'][0]] + sorted(machine_to_jobs_summary['access1-cp'][1:])
+                machine_to_jobs_summary['access1-cp'] = jobs_cpu
             report_progress(machine_to_jobs_summary)
             # Possibility to configure the refreshing time lapse, by passing an argument
             cmd('sleep {}'.format(args.sleep))

@@ -26,7 +26,7 @@ class JobMeta(object):
 
     def initialization(self):
         # print oarsub command
-        print(self.oarsub_command)
+        # print(self.oarsub_command)
         # script generation
         self.generate_script()
 

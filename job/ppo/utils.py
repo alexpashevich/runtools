@@ -11,7 +11,7 @@ from settings import CODE_DIRNAME, HOME
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
 
-def read_args(args_file):
+def read_args(args_file, gridargs=None):
     with open(args_file) as f:
         args_list = f.read().splitlines()
     args = ''
@@ -28,6 +28,10 @@ def read_args(args_file):
             exp_name = line[line.find('--exp=') + len('--exp='):]
         if '--overwrite=True' in line:
             overwrite = True
+    if gridargs is not None:
+        args += gridargs
+        gridargs_suffix = gridargs.replace('=', '').replace('--', '').replace('.', 'd').replace('-', 'm').replace(' ', '_')
+        exp_name += gridargs_suffix
     return args, exp_name, overwrite
 
 
@@ -50,8 +54,8 @@ def append_args(args, extra_args):
     return args
 
 
-def cache_code_dir(args_file, sym_link=False):
-    _, exp_name, _ = read_args(args_file)
+def cache_code_dir(args_file, gridargs=None, sym_link=False):
+    _, exp_name, _ = read_args(args_file, gridargs)
     cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
@@ -66,8 +70,8 @@ def cache_code_dir(args_file, sym_link=False):
         os.symlink('/home/thoth/apashevi/Code', cache_dir)
 
 
-def create_parent_log_dir(args_file):
-    _, exp_name, _ = read_args(args_file)
+def create_parent_log_dir(args_file, gridargs=None):
+    _, exp_name, _ = read_args(args_file, gridargs)
     print('exp_name is {}'.format(exp_name))
     log_dir = os.path.join("/scratch/gpuhost7/apashevi/Logs/agents", exp_name)
     if not os.path.exists(log_dir):
@@ -85,8 +89,8 @@ def create_log_dir(args, exp_name, seed):
     return args
 
 
-def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp):
-    args, exp_name, _ = read_args(args_file)
+def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp, gridargs=None):
+    args, exp_name, _ = read_args(args_file, gridargs)
     args = append_args(args, extra_args)
     # log dir creationg
     args = create_log_dir(args, exp_name, seed)
@@ -163,7 +167,8 @@ def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
         wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
     elif cluster == 'access1-cp':
-        path_exe = 'ppo_mini_tf14.sh'
+        # path_exe = 'ppo_mini_tf14.sh'
+        path_exe = 'ppo_mini.sh'
         parent_job = JobSharedCPU
         wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
@@ -186,3 +191,16 @@ def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
 def print_ckpt(path):
     from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
     print_tensors_in_checkpoint_file(file_name=path, tensor_name='', all_tensors=False)
+
+def gridargs_list(grid_dict):
+    gridargs_list = ['']
+    assert isinstance(grid_dict, dict)
+    for key, value_list in grid_dict.items():
+        assert isinstance(value_list, list) or isinstance(value_list, tuple)
+        new_gridargs_list = []
+        for gridargs_old in gridargs_list:
+            for value in value_list:
+                gridarg = ' --{}={}'.format(key, value)
+                new_gridargs_list.append(gridargs_old + gridarg)
+        gridargs_list = new_gridargs_list
+    return gridargs_list
