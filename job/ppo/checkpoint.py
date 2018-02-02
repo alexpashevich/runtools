@@ -10,7 +10,7 @@ def main():
     parser = argparse.ArgumentParser()
     parser.add_argument('exp_path', type=str,
                         help='Full experiment path (to the dir where the config is stored)')
-    parser.add_argument('-nep', '--no_env_process', default=True, action='store_false',
+    parser.add_argument('-nep', '--no_env_process', default=False, action='store_true',
                         help='Step environments in separate processes to circumvent the GIL')
     parser.add_argument('-r', '--render', default=False, action='store_true',
                         help='Whether to render the run')
@@ -38,7 +38,7 @@ def main():
         from agents.scripts import utility
         config = utility.load_config(args.exp_path)
         with config.unlocked:
-            config.num_agents = 64
+            config.num_agents = 4
 
         rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
         utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)

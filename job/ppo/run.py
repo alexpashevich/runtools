@@ -12,7 +12,7 @@ def main():
                         help='File with argument to feed into the PPO training')
     # extra args provided in format "num_agents=8" (without two dashes)
     parser.add_argument('extra_args', type=str, nargs='*',
-                        help='Additional arguments to be appended to the config arg.')
+                        help='Additional arguments to be appended to the config args')
     parser.add_argument('-n', '--nb_seeds', type=int, default=1,
                         help='Number of seeds to run training with')
     parser.add_argument('-f', '--first_seed', type=int, default=1,
@@ -33,6 +33,10 @@ def main():
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
                         'It should be a dictionary with key equal to the argument you want to ' \
                         'gridsearch on and value equal to list of values you want it to be.')
+    parser.add_argument('-gca', '--git_commit_agents', type=str, default=None,
+                        help='Git commit to checkout the agents repo to')
+    parser.add_argument('-gcg', '--git_commit_grasp_env', type=str, default=None,
+                        help='Git commit to checkout the grasp_env repo to')
     args = parser.parse_args()
 
     utils.rewrite_rendered_envs_file(make_render=args.render)
@@ -42,11 +46,14 @@ def main():
         gridargs_list = utils.gridargs_list(args.grid)
         for gridargs in gridargs_list:
             utils.create_parent_log_dir(args.file, gridargs)
-            utils.cache_code_dir(args.file, gridargs, sym_link=(args.local or args.render))
+            utils.cache_code_dir(args.file, args.git_commit_agents, args.git_commit_grasp_env,
+                                 gridargs,
+                                 sym_link=(args.local or args.render))
     else:
         gridargs_list = None
         utils.create_parent_log_dir(args.file)
-        utils.cache_code_dir(args.file, sym_link=(args.local or args.render))
+        utils.cache_code_dir(args.file, args.git_commit_agents, args.git_commit_grasp_env,
+                             sym_link=(args.local or args.render))
 
     if args.local or args.render:
         utils.run_job_local(args.file, args.extra_args)

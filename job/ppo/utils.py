@@ -1,6 +1,8 @@
 import os
 import shutil
 import sys
+
+from git import Git
 from copy import copy
 
 from pytools.tools import cmd
@@ -15,7 +17,7 @@ def read_args(args_file, gridargs=None):
     with open(args_file) as f:
         args_list = f.read().splitlines()
     args = ''
-    exp_name = 'default'
+    exp_name = None
     overwrite = False
     for line in args_list:
         if line[0] == '#':
@@ -28,11 +30,18 @@ def read_args(args_file, gridargs=None):
             exp_name = line[line.find('--exp=') + len('--exp='):]
         if '--overwrite=True' in line:
             overwrite = True
+    if exp_name is None:
+        exp_name = get_file_name(args_file)
     if gridargs is not None:
         args += gridargs
         gridargs_suffix = gridargs.replace('=', '').replace('--', '').replace('.', 'd').replace('-', 'm').replace(' ', '_')
         exp_name += gridargs_suffix
     return args, exp_name, overwrite
+
+
+def get_file_name(args_file):
+    exp_name = os.path.basename(args_file).split('.')[0]
+    return exp_name
 
 
 def get_arg_val_idxs(args, arg_key):
@@ -54,7 +63,7 @@ def append_args(args, extra_args):
     return args
 
 
-def cache_code_dir(args_file, gridargs=None, sym_link=False):
+def cache_code_dir(args_file, commit_agents, commit_grasp_env, gridargs=None, sym_link=False):
     _, exp_name, _ = read_args(args_file, gridargs)
     cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     if os.path.exists(cache_dir):
@@ -68,6 +77,10 @@ def cache_code_dir(args_file, gridargs=None, sym_link=False):
         cmd('cp -R /home/thoth/apashevi/Code/agents {}/'.format(cache_dir))
     else:
         os.symlink('/home/thoth/apashevi/Code', cache_dir)
+    if commit_agents is not None:
+        checkout_repo(os.path.join(cache_dir, 'agents'), commit_agents)
+    if commit_grasp_env is not None:
+        checkout_repo(os.path.join(cache_dir, 'rlgrasp'), commit_grasp_env)
 
 
 def create_parent_log_dir(args_file, gridargs=None):
@@ -204,3 +217,8 @@ def gridargs_list(grid_dict):
                 new_gridargs_list.append(gridargs_old + gridarg)
         gridargs_list = new_gridargs_list
     return gridargs_list
+
+def checkout_repo(repo, commit_tag):
+    g = Git(repo)
+    g.checkout(commit_tag)
+    print('checkouted {} to {}'.format(repo, commit_tag))
