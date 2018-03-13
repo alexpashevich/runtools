@@ -181,7 +181,7 @@ def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
     elif cluster == 'access1-cp':
         # path_exe = 'ppo_mini_tf14.sh'
-        path_exe = 'ppo_mini.sh'
+        path_exe = 'ppo_mini_cpu.sh'
         parent_job = JobSharedCPU
         wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
