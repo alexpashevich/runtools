@@ -1,6 +1,7 @@
 import argparse
 import datetime
 import json
+import collections
 
 from job.ppo import utils
 
@@ -40,23 +41,29 @@ def main():
     args = parser.parse_args()
 
     utils.rewrite_rendered_envs_file(make_render=args.render)
+    extra_args_str = utils.stringify_extra_args(sorted(args.extra_args))
 
+    # cache the code and create directories
     if args.grid is not None:
+        grid_dict_sorted = collections.OrderedDict(sorted(args.grid.items()))
         assert not args.local and not args.render
-        gridargs_list = utils.gridargs_list(args.grid)
+        gridargs_list = utils.gridargs_list(grid_dict_sorted)
         for gridargs in gridargs_list:
-            utils.create_parent_log_dir(args.file, gridargs)
+            other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
+            utils.create_parent_log_dir(args.file, other_args)
             utils.cache_code_dir(args.file, args.git_commit_agents, args.git_commit_grasp_env,
-                                 gridargs,
+                                 other_args,
                                  sym_link=(args.local or args.render))
     else:
         gridargs_list = None
-        utils.create_parent_log_dir(args.file)
+        utils.create_parent_log_dir(args.file, extra_args_str)
         utils.cache_code_dir(args.file, args.git_commit_agents, args.git_commit_grasp_env,
+                             extra_args_str,
                              sym_link=(args.local or args.render))
 
+    # run the experiment(s)
     if args.local or args.render:
-        utils.run_job_local(args.file, args.extra_args)
+        utils.run_job_local(args.file, extra_args_str)
         if args.render:
             utils.rewrite_rendered_envs_file(make_render=False)
     else:
@@ -64,13 +71,13 @@ def main():
         JobPPO = utils.get_job(cluster, args.besteffort, args.nb_cores, args.wallclock)
         if gridargs_list is not None:
             for gridargs in gridargs_list:
+                other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
                 for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
-                    utils.run_job_cluster(args.file, seed, args.nb_seeds, JobPPO,
-                                          args.extra_args, TIMESTAMP, gridargs)
+                    utils.run_job_cluster(args.file, seed, args.nb_seeds, JobPPO, TIMESTAMP, other_args)
         else:
             for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
                 utils.run_job_cluster(args.file, seed, args.nb_seeds, JobPPO,
-                                      args.extra_args, TIMESTAMP)
+                                      TIMESTAMP, extra_args_str)
 
 if __name__ == '__main__':
     main()

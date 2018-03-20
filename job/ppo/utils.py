@@ -33,7 +33,8 @@ def read_args(args_file, gridargs=None):
     if exp_name is None:
         exp_name = get_file_name(args_file)
     if gridargs is not None:
-        args += gridargs
+        # args += gridargs
+        args = append_args(args, gridargs)
         gridargs_suffix = gridargs.replace('=', '').replace('--', '').replace('.', 'd').replace('-', 'm').replace(' ', '_')
         exp_name += gridargs_suffix
     return args, exp_name, overwrite
@@ -45,17 +46,26 @@ def get_file_name(args_file):
 
 
 def get_arg_val_idxs(args, arg_key):
-    begin_idx = args.find(arg_key)
+    begin_idx = args.find('--' + arg_key) + 2
     end_idx = args[begin_idx:].find(' ')
     if end_idx == -1:
         end_idx = len(args) - begin_idx
     return begin_idx, begin_idx+end_idx
 
 
+def stringify_extra_args(extra_args):
+    # create a string out of a list of arguments
+    if len(extra_args) == 0:
+        return None
+    return ' --' + ' --'.join(extra_args)
+
+
 def append_args(args, extra_args):
+    if isinstance(extra_args, str):
+        extra_args = extra_args.replace('--', '').strip().split(' ')
     for extra_arg in extra_args:
         arg_key = extra_arg[:extra_arg.find('=')+1]
-        if arg_key in args:
+        if ('--' + arg_key) in args:
             begin_idx, end_idx = get_arg_val_idxs(args, arg_key)
             args = args[:begin_idx] + extra_arg + args[end_idx:]
         else:
@@ -102,9 +112,9 @@ def create_log_dir(args, exp_name, seed):
     return args
 
 
-def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp, gridargs=None):
+def run_job_cluster(args_file, seed, nb_seeds, job_class, timestamp, gridargs=None):
     args, exp_name, _ = read_args(args_file, gridargs)
-    args = append_args(args, extra_args)
+    # args = append_args(args, extra_args)
     # log dir creationg
     args = create_log_dir(args, exp_name, seed)
     # adding the seed to arguments and exp_name
@@ -123,8 +133,8 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class, extra_args, timestamp,
 
 
 def run_job_local(args_file, extra_args):
-    args, exp_name, _ = read_args(args_file)
-    args = append_args(args, extra_args)
+    args, exp_name, _ = read_args(args_file, extra_args)
+    # args = append_args(args, extra_args)
     # log dir creation
     seed = 0
     args = create_log_dir(args, exp_name, seed)
