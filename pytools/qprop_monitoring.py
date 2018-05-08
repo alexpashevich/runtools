@@ -6,7 +6,18 @@ import curses
 import argparse
 
 
+# TODO: read
+# https://docs.python.org/3.5/howto/curses.html
+# https://stackoverflow.com/questions/2515244/how-to-scroll-text-in-python-curses-subwindow
+
 stdscr = curses.initscr()
+# curses.initscr()
+
+# test
+# stdscr = curses.newpad(40,60)
+# mypad_pos = 0
+# stdscr.refresh(mypad_pos, 0, 5, 5, 10, 60)
+
 # KEYWORDS = ['AverageReturn', 'MaxReturn', 'MinDist', 'srS1', 'srS2', 'srG1', 'srG2']
 KEYWORDS = []
 MAX_LENGTH = 80
@@ -114,63 +125,77 @@ def monitor(argv):
     # initialize unix curses
     curses.noecho()
     curses.cbreak()
+    stdscr.keypad(True)
 
     # initialize argparser
     parser = argparse.ArgumentParser()
     parser.add_argument('--sleep', type=int, default=10,
                         help='Seconds to sleep')
     args = parser.parse_args(argv[1:])
-
     try:
         while True:
-            clear_list, edgar_list = [], []
-            machines = [GPU_MACHINE, SHARED_CPU_MACHINE]
-            machine_to_jobs_summary = {machine: [] for machine in machines}
-            for machine in machines:
-                try:
-                    jobs = cmd("ssh -x " + machine + " 'oarstat | grep " + LOGIN + "'")
-                except sp.CalledProcessError as e:
-                    continue
+            # stdscr.clear()
+            stdscr.addstr(0, 0, 'Monitoring...')
 
-                job_list_titles = ['job_name', 'job_id', 'time', 'itr'] + KEYWORDS
-                machine_to_jobs_summary[machine].append(job_list_titles)
-                for job in sorted(jobs):
-                    # Monitoring only non interactive jobs
-                    if (job.split(' ')[-2]).split('J=')[-1] == 'I':
-                        continue
-                    # Extracting information and initializing a list for printing
-                    job_id = job.split(' ')[0]
-                    job_name = ''
-                    if len(job.split('N=')) > 1 and len((job.split('N=')[1]).split(' (')) > 0:
-                        job_name = (job.split('N=')[1]).split(' (')[0]
-                        if len(job_name.split(',')) > 1:
-                            job_name = job_name.split(',')[0]
-                    duration = (job.split(' R=')[0]).split(' ')[-1]
-                    job_list = [job_name, job_id, duration]
-                    # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
-                    oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
-                    try:
-                        oarout_list = tail(open(oarout, 'r'), 70)
-                    except:
-                        continue
+            # read the characters
+            cmd = stdscr.getch()
+            if cmd == curses.KEY_DOWN:
+                stdscr.addstr(1, 0, 'KEY DOWN')
+                mypad_pos += 1
+                stdscr.refresh(mypad_pos, 0, 5, 5, 10, 60)
+            elif cmd == curses.KEY_UP:
+                stdscr.addstr(2, 0, 'KEY UP')
+                mypad_pos -= 1
+                stdscr.refresh(mypad_pos, 0, 5, 5, 10, 60)
 
-                    oarout_string = ' '.join(oarout_list)
-                    job_list.append(cut_step(oarout_string))
-                    for keyword in KEYWORDS:
-                        job_list.append(cut_value(oarout_string, keyword))
-                        # TODO: fix cutting when a job has just started
-                    machine_to_jobs_summary[machine].append(job_list)
+            # machines = [GPU_MACHINE, SHARED_CPU_MACHINE]
+            # machine_to_jobs_summary = {machine: [] for machine in machines}
+            # for machine in machines:
+            #     try:
+            #         jobs = cmd("ssh -x " + machine + " 'oarstat | grep " + LOGIN + "'")
+            #     except sp.CalledProcessError as e:
+            #         continue
 
-            # TODO: refactor
-            if len(machine_to_jobs_summary['access1-cp']) > 0:
-                jobs_cpu = [machine_to_jobs_summary['access1-cp'][0]] + sorted(machine_to_jobs_summary['access1-cp'][1:])
-                machine_to_jobs_summary['access1-cp'] = jobs_cpu
-            report_progress(machine_to_jobs_summary)
-            # Possibility to configure the refreshing time lapse, by passing an argument
-            cmd('sleep {}'.format(args.sleep))
+            #     job_list_titles = ['job_name', 'job_id', 'time', 'itr'] + KEYWORDS
+            #     machine_to_jobs_summary[machine].append(job_list_titles)
+            #     for job in sorted(jobs):
+            #         # Monitoring only non interactive jobs
+            #         if (job.split(' ')[-2]).split('J=')[-1] == 'I':
+            #             continue
+            #         # Extracting information and initializing a list for printing
+            #         job_id = job.split(' ')[0]
+            #         job_name = ''
+            #         if len(job.split('N=')) > 1 and len((job.split('N=')[1]).split(' (')) > 0:
+            #             job_name = (job.split('N=')[1]).split(' (')[0]
+            #             if len(job_name.split(',')) > 1:
+            #                 job_name = job_name.split(',')[0]
+            #         duration = (job.split(' R=')[0]).split(' ')[-1]
+            #         job_list = [job_name, job_id, duration]
+            #         # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
+            #         oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
+            #         try:
+            #             oarout_list = tail(open(oarout, 'r'), 70)
+            #         except:
+            #             continue
+
+            #         oarout_string = ' '.join(oarout_list)
+            #         job_list.append(cut_step(oarout_string))
+            #         for keyword in KEYWORDS:
+            #             job_list.append(cut_value(oarout_string, keyword))
+            #             # TODO: fix cutting when a job has just started
+            #         machine_to_jobs_summary[machine].append(job_list)
+
+            # # TODO: refactor
+            # if len(machine_to_jobs_summary['access1-cp']) > 0:
+            #     jobs_cpu = [machine_to_jobs_summary['access1-cp'][0]] + sorted(machine_to_jobs_summary['access1-cp'][1:])
+            #     machine_to_jobs_summary['access1-cp'] = jobs_cpu
+            # report_progress(machine_to_jobs_summary)
+            # # Possibility to configure the refreshing time lapse, by passing an argument
+            # cmd('sleep {}'.format(args.sleep))
     finally:
         # kill unix curses in order to have normal termial output afterwards
         curses.echo()
+        stdscr.keypad(False)
         curses.nocbreak()
         curses.endwin()
 
