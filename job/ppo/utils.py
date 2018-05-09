@@ -22,10 +22,15 @@ def read_args(args_file, gridargs=None):
     for line in args_list:
         if line[0] == '#':
             continue
-        if ' ' in line:
-            print('WARNING: space(s) was found in {}, erased'.format(line))
-            line = line.replace(' ', '')
-        args += line + ' '
+        for char in {' ', '\t', '\n'}:
+            if char in line:
+                if char == ' ':
+                    print('WARNING: char(s) \'{}\' was found in {} and erased'.format(char, line))
+                line = line.replace(char, '')
+        if line[:2] == '--':
+            args += ' ' + line
+        else:
+            args += line
         if '--exp=' in line:
             exp_name = line[line.find('--exp=') + len('--exp='):]
         if '--overwrite=True' in line:
@@ -35,7 +40,7 @@ def read_args(args_file, gridargs=None):
     if gridargs is not None:
         # args += gridargs
         args = append_args(args, gridargs)
-        gridargs_suffix = gridargs.replace('=', '').replace('--', '').replace('.', 'd').replace('-', 'm').replace(' ', '_')
+        gridargs_suffix = gridargs.replace('=', '').replace('--', '').replace('.', 'd').replace(',', 'c').replace('-', 'm').replace(' ', '_').replace('[', '').replace(']', '')
         exp_name += gridargs_suffix
     return args, exp_name, overwrite
 
@@ -178,20 +183,20 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
+def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False):
     if cluster == 'edgar':
+        if not use_tf15:
+            path_exe = 'ppo_mini.sh'
+        else:
+            path_exe = 'ppo_mini_tf15.sh'
         parent_job = JobGPU
-        path_exe = 'ppo_mini.sh'
         wallclock = 12 if wallclock is None else wallclock
         l_options = ['walltime={}:0:0'.format(wallclock)]
-    elif cluster == 'clear':
-        parent_job = JobCPU
-        path_exe = 'ppo_mini.sh'
-        wallclock = 72 if wallclock is None else wallclock
-        l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
     elif cluster == 'access1-cp':
-        # path_exe = 'ppo_mini_tf14.sh'
-        path_exe = 'ppo_mini_cpu.sh'
+        if not use_tf15:
+            path_exe = 'ppo_mini_cpu.sh'
+        else:
+            path_exe = 'ppo_mini_tf15ucpu.sh'
         parent_job = JobSharedCPU
         wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
@@ -199,17 +204,18 @@ def get_job(cluster, besteffort=False, nb_cores=8, wallclock=None):
         raise ValueError('unknown cluster = {}'.format(cluster))
 
     class JobPPO(parent_job):
-        def __init__(self, run_argv):
+        def __init__(self, run_argv, p_options):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
             self.local_path_exe = path_exe
             self.job_name = run_argv[0]
             self.interpreter = ''
             self.besteffort = besteffort
+            self.own_p_options = [parent_job(self).own_p_options[0] + p_options]
         @property
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
-    return JobPPO
+    return lambda run_argv: JobPPO(run_argv, p_options)
 
 def print_ckpt(path):
     from tensorflow.python.tools.inspect_checkpoint import print_tensors_in_checkpoint_file
@@ -232,3 +238,13 @@ def checkout_repo(repo, commit_tag):
     g = Git(repo)
     g.checkout(commit_tag)
     print('checkouted {} to {}'.format(repo, commit_tag))
+
+def get_shared_machines_p_option(category):
+    nodes = {'s': list(range(1, 15)) + [36], 'f': list(range(21, 36)) + list(range(37, 45))}
+    assert category in nodes.keys()
+    nodes_indices = nodes[category]
+    hosts = []
+    for node_idx in nodes_indices:
+        hosts.append('host=\'\"\'\"\'node{}-thoth.inrialpes.fr\'\"\'\"\''.format(node_idx))
+    p_option = ' or '.join(hosts)
+    return ' and ({})'.format(p_option)

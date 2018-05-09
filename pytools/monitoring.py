@@ -18,6 +18,7 @@ from pytools.tools import cmd
 from settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OARSUB_DIRNAME
 
 KEYWORDS = []
+MAX_LENGTH = 80
 
 def tail(f, n):
     assert n >= 0
@@ -71,7 +72,7 @@ def getMachineSummary(machine, keywords):
     except sp.CalledProcessError as e:
         return []
 
-    machine_summary = list(keywords)
+    machine_summary = [list(keywords)]
     for job in sorted(jobs):
         # Monitoring only non interactive jobs
         if (job.split(' ')[-2]).split('J=')[-1] == 'I':
@@ -127,10 +128,9 @@ class MenuDemo:
             self.displayScreen()
             # get user command
             c = self.screen.getch()
-            print(str(c))
-            if c == curses.KEY_UP or c == KEY_K:
+            if c == curses.KEY_UP or c == self.KEY_K:
                 self.updown(self.UP)
-            elif c == curses.KEY_DOWN or c == KEY_J:
+            elif c == curses.KEY_DOWN or c == self.KEY_J:
                 self.updown(self.DOWN)
             elif c == self.ESC_KEY:
                 self.exit()
@@ -153,7 +153,7 @@ class MenuDemo:
         self.outputLines = ['Monitoring...']
         for machine, machine_summaries in all_summaries.items():
             self.outputLines.append('### ' + machine + ' ###')
-            if len(jobs_summary) > 0:
+            if len(machine_summaries) > 0:
                 # first create a template for all the jobs
                 lengths = []
                 template_length = len(machine_summaries[0])
@@ -171,7 +171,7 @@ class MenuDemo:
                         if len(job_summary[i]) > MAX_LENGTH:
                             job_summary[i] = job_summary[i][-MAX_LENGTH:]
 
-                for job_summary in range(len(machine_summaries)):
+                for job_summary in machine_summaries:
                     self.outputLines.append(template.format(*job_summary))
             else:
                 self.outputLines += ['No jobs running', '\n']
@@ -225,6 +225,5 @@ class MenuDemo:
 
      
 if __name__ == '__main__':
-    import pudb; pudb.set_trace()
     ih = MenuDemo()
     

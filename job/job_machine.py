@@ -8,12 +8,14 @@ class JobGPU(JobMeta):
         JobMeta.__init__(self, run_argv)
         self.machine_name = GPU_MACHINE
         self.interpreter = interpreter
+        self.own_p_options = ['not gpumodel=\'\"\'\"\'gtx1080\'\"\'\"\'']
 
     @property
     def oarsub_p_options(self):
         # return JobMeta(self).oarsub_p_options + ['not host=\'\"\'\"\'gpuhost13\'\"\'\"\'']
         # return JobMeta(self).oarsub_p_options + ['gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x\'\"\'\"\' or gpumodel=\'\"\'\"\'gtx1080_ti\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_xp\'\"\'\"\'']
-        return JobMeta(self).oarsub_p_options
+        # return JobMeta(self).oarsub_p_options
+        return self.own_p_options
 
 
 class JobCPU(JobMeta):
@@ -21,14 +23,11 @@ class JobCPU(JobMeta):
         JobMeta.__init__(self, run_argv)
         self.machine_name = CPU_MACHINE
         self.interpreter = interpreter
+        self.own_p_options = ['cluster= \'\"\'\"\'ubuntu\'\"\'\"\'']
 
     @property
     def oarsub_p_options(self):
-        # return JobMeta(self).oarsub_p_options + [('cluster= \'\"\'\"\'ubuntu\'\"\'\"\' and ' +
-        #                                           'not host=\'\"\'\"\'node32\'\"\'\"\' and ' +
-        #                                           'not host=\'\"\'\"\'node36\'\"\'\"\' and ' +
-        #                                           'not host=\'\"\'\"\'node42\'\"\'\"\'')]
-        return JobMeta(self).oarsub_p_options + ['cluster= \'\"\'\"\'ubuntu\'\"\'\"\'']
+        return self.own_p_options
 
 
 
@@ -37,7 +36,9 @@ class JobSharedCPU(JobMeta):
         JobMeta.__init__(self, run_argv)
         self.machine_name = SHARED_CPU_MACHINE
         self.interpreter = interpreter
+        self.own_p_options = ['cluster=\'\"\'\"\'thoth\'\"\'\"\'']
 
     @property
     def oarsub_p_options(self):
-        return JobMeta(self).oarsub_p_options + ['cluster=\'\"\'\"\'thoth\'\"\'\"\'']
+        return self.own_p_options
+        # return JobMeta(self).oarsub_p_options + ['cluster=\'\"\'\"\'thoth\'\"\'\"\' and (host=\'\"\'\"\'node40-thoth.inrialpes.fr\'\"\'\"\' or host=\'\"\'\"\'node41-thoth.inrialpes.fr\'\"\'\"\' or host=\'\"\'\"\'node42-thoth.inrialpes.fr\'\"\'\"\' or host=\'\"\'\"\'node43-thoth.inrialpes.fr\'\"\'\"\' or host=\'\"\'\"\'node44-thoth.inrialpes.fr\'\"\'\"\')']
