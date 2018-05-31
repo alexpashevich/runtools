@@ -190,8 +190,7 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(
-        cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False)
+def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False):
     if not use_tf15:
         path_exe = 'ppo_mini.sh'
     else:
