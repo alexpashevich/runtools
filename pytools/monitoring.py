@@ -89,7 +89,7 @@ def getMachineSummary(machine, keywords):
         # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
         oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
         try:
-            oarout_list = tail(open(oarout, 'r'), 140)
+            oarout_list = tail(open(oarout, 'r'), 300)
         except:
             continue
 
@@ -105,8 +105,11 @@ class MenuDemo:
     DOWN = 1
     UP = -1
     ESC_KEY = 27
-    KEY_J = 106
-    KEY_K = 107
+    KEY_q = 113
+    KEY_j = 106
+    KEY_k = 107
+    KEY_g = 103
+    KEY_G = 71
 
     outputLines = []
     screen = None
@@ -115,10 +118,9 @@ class MenuDemo:
         self.screen = curses.initscr()
         curses.noecho()
         curses.cbreak()
-        self.screen.keypad(1) 
+        self.screen.keypad(1)
         self.screen.border(0)
         self.topLineNum = 0
-        self.currentLine = 0
         self.lastSummariesUpdate = 0
         self.getOutputLines()
         self.run()
@@ -128,15 +130,15 @@ class MenuDemo:
             self.displayScreen()
             # get user command
             c = self.screen.getch()
-            if c == curses.KEY_UP or c == self.KEY_K:
+            if c == curses.KEY_UP or c == self.KEY_k:
                 self.updown(self.UP)
-            elif c == curses.KEY_DOWN or c == self.KEY_J:
+            elif c == curses.KEY_DOWN or c == self.KEY_j:
                 self.updown(self.DOWN)
-            elif c == self.ESC_KEY:
+            elif c == self.ESC_KEY or c == self.KEY_q:
                 self.exit()
 
     def getOutputLines(self):
-        if time.time() - self.lastSummariesUpdate < 10:
+        if time.time() - self.lastSummariesUpdate < 30:
             return
 
         machines = [GPU_MACHINE, CPU_MACHINE]
@@ -177,41 +179,30 @@ class MenuDemo:
                 self.outputLines += ['No jobs running', '\n']
         self.nOutputLines = len(self.outputLines)
         self.lastSummariesUpdate = time.time()
+        # TODO: check
+        if self.topLineNum > self.nOutputLines:
+            self.topLineNum = self.nOutputLines // curses.LINES * curses.LINES
 
     def displayScreen(self):
         # clear screen
         self.screen.erase()
+        self.getOutputLines()
 
         # now paint the rows
         top = self.topLineNum
         bottom = self.topLineNum+curses.LINES
         for (index,line,) in enumerate(self.outputLines[top:bottom]):
             linenum = self.topLineNum + index
-
-            # highlight current line
-            if index != self.currentLine:
-                self.screen.addstr(index, 0, line)
-            else:
-                self.screen.addstr(index, 0, line, curses.A_BOLD)
+            self.screen.addstr(index, 0, line)
         self.screen.refresh()
 
     # move highlight up/down one line
     def updown(self, increment):
-        nextLineNum = self.currentLine + increment
-
-        # paging
-        if increment == self.UP and self.currentLine == 0 and self.topLineNum != 0:
-            self.topLineNum += self.UP 
-            return
-        elif increment == self.DOWN and nextLineNum == curses.LINES and (self.topLineNum+curses.LINES) != self.nOutputLines:
-            self.topLineNum += self.DOWN
-            return
-
-        # scroll highlight line
-        if increment == self.UP and (self.topLineNum != 0 or self.currentLine != 0):
-            self.currentLine = nextLineNum
-        elif increment == self.DOWN and (self.topLineNum+self.currentLine+1) != self.nOutputLines and self.currentLine != curses.LINES:
-            self.currentLine = nextLineNum
+        newTopLineNum = self.topLineNum + increment * curses.LINES
+        newTopLineNum = max(0, newTopLineNum)
+        newTopLineNum = min(self.nOutputLines - 1, newTopLineNum)
+        if newTopLineNum % curses.LINES == 0:
+            self.topLineNum = newTopLineNum
  
     def restoreScreen(self):
         curses.initscr()

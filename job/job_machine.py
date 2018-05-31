@@ -8,7 +8,8 @@ class JobGPU(JobMeta):
         JobMeta.__init__(self, run_argv)
         self.machine_name = GPU_MACHINE
         self.interpreter = interpreter
-        self.own_p_options = ['not gpumodel=\'\"\'\"\'gtx1080\'\"\'\"\'']
+        # self.own_p_options = ['not gpumodel=\'\"\'\"\'gtx1080\'\"\'\"\'']
+        self.own_p_options = ['']
 
     @property
     def oarsub_p_options(self):

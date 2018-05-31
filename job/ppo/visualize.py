@@ -52,7 +52,7 @@ def main():
             shutil.rmtree(finaloutdir)
         os.makedirs(finaloutdir)
         outdirs.append(finaloutdir)
-        visualizer.visualize(finallogdir, finaloutdir, num_agents=4, num_episodes=8,
+        visualizer.visualize(finallogdir, finaloutdir, num_agents=2, num_episodes=8,
                   checkpoint=None, env_processes=True)
         cmd('rm {}/*.manifest.json'.format(finaloutdir))
         cmd('rm {}/*.meta.json'.format(finaloutdir))

@@ -2,6 +2,7 @@ import argparse
 import datetime
 import json
 import collections
+import os
 
 from job.ppo import utils
 
@@ -18,6 +19,8 @@ def main():
                         help='Number of seeds to run training with')
     parser.add_argument('-f', '--first_seed', type=int, default=1,
                         help='First seed value')
+    parser.add_argument('-s', '--seed', type=int, default=None,
+                        help='Seed to use (in a local experiment).')
     parser.add_argument('-l', '--local', default=False, action='store_true',
                         help='Whether to run the training locally or on clear')
     parser.add_argument('-e', '--edgar', default=False, action='store_true',
@@ -43,34 +46,63 @@ def main():
                         'the choice should be in {\'s\', \'f\'} (slow or fast).')
     parser.add_argument('--tf15', default=True, action='store_false',
                         help='Whether to use tensorflow 1.5')
+    parser.add_argument('-fte', '--fine_tune_exp', type=str, default=None,
+                        help='Name of the experiment to use for the finetuning (if not None).')
+    parser.add_argument('-ftt', '--fine_tune_ts', type=str, default=None,
+                        help='Timestep of the experiment to use for the finetuning (if not None).')
+    # TODO: delete later
+    parser.add_argument('--mlsh', default=False, action='store_true',
+                        help='Whether to run MLSH code.')
     args = parser.parse_args()
 
-    utils.rewrite_rendered_envs_file(make_render=args.render)
-    extra_args_str = utils.stringify_extra_args(sorted(args.extra_args))
+    if not args.mlsh:
+        utils.rewrite_rendered_envs_file(make_render=args.render)
+        extra_args_str = utils.stringify_extra_args(sorted(args.extra_args))
 
-    # cache the code and create directories
-    if args.grid is not None:
-        grid_dict_sorted = collections.OrderedDict(sorted(args.grid.items()))
-        assert not args.local and not args.render
-        gridargs_list = utils.gridargs_list(grid_dict_sorted)
-        for filename in args.files:
-            for gridargs in gridargs_list:
-                other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
-                utils.create_parent_log_dir(filename, other_args)
+        # cache the code and create directories
+        if args.grid is not None:
+            grid_dict_sorted = collections.OrderedDict(sorted(args.grid.items()))
+            assert not args.local and not args.render
+            gridargs_list = utils.gridargs_list(grid_dict_sorted)
+            for filename in args.files:
+                for gridargs in gridargs_list:
+                    other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
+                    utils.create_parent_log_dir(filename, other_args)
+                    utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
+                                        other_args,
+                                        sym_link=(args.local or args.render))
+        else:
+            gridargs_list = None
+            for filename in args.files:
+                utils.create_parent_log_dir(filename, extra_args_str)
                 utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
-                                    other_args,
-                                    sym_link=(args.local or args.render))
+                                    extra_args_str, sym_link=(args.local or args.render))
     else:
+        extra_args_str = None
         gridargs_list = None
-        for filename in args.files:
-            utils.create_parent_log_dir(filename, extra_args_str)
-            utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
-                                 extra_args_str, sym_link=(args.local or args.render))
+
+    # fine_tune checkpoint
+    if args.fine_tune_exp and args.fine_tune_ts:
+        ckpt_file = os.path.join('/home/thoth/apashevi/Logs/agents/', args.fine_tune_exp,
+                                 'seed{}', args.fine_tune_ts, 'checkpoint')
+        # fine_tune_args = ' --checkpoint_fc={}'.format(
+        #     os.path.join('/home/thoth/apashevi/Logs/agents/', args.fine_tune_exp,
+        #                  'seed{}', args.fine_tune_ts, 'checkpoint'))
+    else:
+        ckpt_file = None
 
     # run the experiment(s)
     if args.local or args.render:
         assert len(args.files) == 1
-        utils.run_job_local(args.files[0], extra_args_str)
+        assert not args.mlsh
+        if ckpt_file:
+            # TODO: fix seed
+            with open(ckpt_file.format(1)) as cf:
+                not_in_name_args = ' --checkpoint_fc={}'.format(cf.readline().split('"')[1])
+        else:
+            not_in_name_args = None
+        utils.run_job_local(
+            args.files[0], extra_args_str, seed=args.seed, not_in_name_args=not_in_name_args)
         if args.render:
             utils.rewrite_rendered_envs_file(make_render=False)
     else:
@@ -82,18 +114,31 @@ def main():
         # old machines can not run tensorflow >1.5
         use_tf15 = True if args.machines == 's' or args.tf15 else False
         JobPPO = utils.get_job(
-            cluster, p_options, args.besteffort, args.nb_cores, args.wallclock, use_tf15)
+            cluster, p_options, args.besteffort, args.nb_cores, args.wallclock, use_tf15, args.mlsh)
 
         for filename in args.files:
             if gridargs_list is not None:
                 for gridargs in gridargs_list:
                     other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
                     for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
-                        utils.run_job_cluster(filename, seed, args.nb_seeds, JobPPO, TIMESTAMP, other_args)
+                        if ckpt_file:
+                            with open(ckpt_file.format(seed)) as cf:
+                                not_in_name_args = ' --checkpoint_fc={}'.format(
+                                    cf.readline().split('"')[1])
+                        else:
+                            not_in_name_args = None
+                        utils.run_job_cluster(
+                            filename, seed, args.nb_seeds, JobPPO, TIMESTAMP, other_args, not_in_name_args)
             else:
                 for seed in range(args.first_seed, args.first_seed + args.nb_seeds):
+                    if ckpt_file:
+                        with open(ckpt_file.format(seed)) as cf:
+                            not_in_name_args = ' --checkpoint_fc={}'.format(
+                                cf.readline().split('"')[1])
+                    else:
+                        not_in_name_args = None
                     utils.run_job_cluster(filename, seed, args.nb_seeds, JobPPO,
-                                          TIMESTAMP, extra_args_str)
+                                          TIMESTAMP, extra_args_str, not_in_name_args)
 
 if __name__ == '__main__':
     main()

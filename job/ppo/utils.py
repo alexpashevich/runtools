@@ -117,7 +117,8 @@ def create_log_dir(args, exp_name, seed):
     return args
 
 
-def run_job_cluster(args_file, seed, nb_seeds, job_class, timestamp, gridargs=None):
+def run_job_cluster(
+        args_file, seed, nb_seeds, job_class, timestamp, gridargs=None, not_in_name_args=None):
     args, exp_name, _ = read_args(args_file, gridargs)
     # args = append_args(args, extra_args)
     # log dir creationg
@@ -132,17 +133,23 @@ def run_job_cluster(args_file, seed, nb_seeds, job_class, timestamp, gridargs=No
                               'specified in the argument file'))
     if '--timestamp=' not in args:
         args += ' --timestamp={}'.format(timestamp)
+    if not_in_name_args:
+        args += ' ' + not_in_name_args
     # running the job
     manage([job_class([exp_name, args])], only_initialization=False, sleep_duration=3)
     print('...\n...\n...')
 
 
-def run_job_local(args_file, extra_args):
+def run_job_local(args_file, extra_args, seed=None, not_in_name_args=None):
     args, exp_name, _ = read_args(args_file, extra_args)
-    # args = append_args(args, extra_args)
     # log dir creation
-    seed = 0
+    if seed is None:
+        seed = 0
+    else:
+        args = append_args(args, ['seed={}'.format(seed)])
     args = create_log_dir(args, exp_name, seed)
+    if not_in_name_args:
+        args += ' ' + not_in_name_args
     os.chdir('/home/thoth/apashevi/Code/agents/')
     # running the script
     script = 'python3 -m agents.scripts.train ' + args
@@ -173,6 +180,9 @@ def change_sys_path(sys_path_clean, logdir):
     cachedir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     sys.path.append(os.path.join(cachedir, 'agents'))
     sys.path.append(os.path.join(cachedir, 'rlgrasp'))
+    # TEMP
+    sys.path.append(os.path.join(cachedir, 'sac'))
+    sys.path.append(os.path.join(cachedir, 'rllab'))
 
 
 def str2bool(v):
@@ -183,20 +193,28 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False):
+def get_job(
+        cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False, mlsh=False):
+    if not use_tf15:
+        path_exe = 'ppo_mini.sh'
+    else:
+        path_exe = 'ppo_mini_tf15ucpu.sh'
+    # TODO: remove later
+    if mlsh:
+        path_exe = 'mlsh.sh'
     if cluster == 'edgar':
-        if not use_tf15:
-            path_exe = 'ppo_mini.sh'
-        else:
-            path_exe = 'ppo_mini_tf15.sh'
+        # if not use_tf15:
+        #     path_exe = 'ppo_mini.sh'
+        # else:
+        #     path_exe = 'ppo_mini_tf15.sh'
         parent_job = JobGPU
         wallclock = 12 if wallclock is None else wallclock
         l_options = ['walltime={}:0:0'.format(wallclock)]
     elif cluster == 'access1-cp':
-        if not use_tf15:
-            path_exe = 'ppo_mini_cpu.sh'
-        else:
-            path_exe = 'ppo_mini_tf15ucpu.sh'
+        # if not use_tf15:
+        #     path_exe = 'ppo_mini_cpu.sh'
+        # else:
+        #     path_exe = 'ppo_mini_tf15ucpu.sh'
         parent_job = JobSharedCPU
         wallclock = 72 if wallclock is None else wallclock
         l_options = ['nodes=1/core={},walltime={}:0:0'.format(nb_cores, wallclock)]
@@ -240,7 +258,8 @@ def checkout_repo(repo, commit_tag):
     print('checkouted {} to {}'.format(repo, commit_tag))
 
 def get_shared_machines_p_option(category):
-    nodes = {'s': list(range(1, 15)) + [36], 'f': list(range(21, 36)) + list(range(37, 45))}
+    # nodes = {'s': list(range(1, 15)) + [36], 'f': list(range(21, 36)) + list(range(37, 45))}
+    nodes = {'s': list(range(1, 15)), 'f': list(range(21, 45))}
     assert category in nodes.keys()
     nodes_indices = nodes[category]
     hosts = []
