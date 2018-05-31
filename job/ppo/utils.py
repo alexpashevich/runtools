@@ -180,9 +180,6 @@ def change_sys_path(sys_path_clean, logdir):
     cachedir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     sys.path.append(os.path.join(cachedir, 'agents'))
     sys.path.append(os.path.join(cachedir, 'rlgrasp'))
-    # TEMP
-    sys.path.append(os.path.join(cachedir, 'sac'))
-    sys.path.append(os.path.join(cachedir, 'rllab'))
 
 
 def str2bool(v):
@@ -194,14 +191,11 @@ def str2bool(v):
         raise TypeError('Boolean value expected.')
 
 def get_job(
-        cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False, mlsh=False):
+        cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False)
     if not use_tf15:
         path_exe = 'ppo_mini.sh'
     else:
         path_exe = 'ppo_mini_tf15ucpu.sh'
-    # TODO: remove later
-    if mlsh:
-        path_exe = 'mlsh.sh'
     if cluster == 'edgar':
         # if not use_tf15:
         #     path_exe = 'ppo_mini.sh'

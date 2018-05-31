@@ -50,36 +50,29 @@ def main():
                         help='Name of the experiment to use for the finetuning (if not None).')
     parser.add_argument('-ftt', '--fine_tune_ts', type=str, default=None,
                         help='Timestep of the experiment to use for the finetuning (if not None).')
-    # TODO: delete later
-    parser.add_argument('--mlsh', default=False, action='store_true',
-                        help='Whether to run MLSH code.')
     args = parser.parse_args()
 
-    if not args.mlsh:
-        utils.rewrite_rendered_envs_file(make_render=args.render)
-        extra_args_str = utils.stringify_extra_args(sorted(args.extra_args))
+    utils.rewrite_rendered_envs_file(make_render=args.render)
+    extra_args_str = utils.stringify_extra_args(sorted(args.extra_args))
 
-        # cache the code and create directories
-        if args.grid is not None:
-            grid_dict_sorted = collections.OrderedDict(sorted(args.grid.items()))
-            assert not args.local and not args.render
-            gridargs_list = utils.gridargs_list(grid_dict_sorted)
-            for filename in args.files:
-                for gridargs in gridargs_list:
-                    other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
-                    utils.create_parent_log_dir(filename, other_args)
-                    utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
-                                        other_args,
-                                        sym_link=(args.local or args.render))
-        else:
-            gridargs_list = None
-            for filename in args.files:
-                utils.create_parent_log_dir(filename, extra_args_str)
+    # cache the code and create directories
+    if args.grid is not None:
+        grid_dict_sorted = collections.OrderedDict(sorted(args.grid.items()))
+        assert not args.local and not args.render
+        gridargs_list = utils.gridargs_list(grid_dict_sorted)
+        for filename in args.files:
+            for gridargs in gridargs_list:
+                other_args = gridargs + extra_args_str if extra_args_str is not None else gridargs
+                utils.create_parent_log_dir(filename, other_args)
                 utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
-                                    extra_args_str, sym_link=(args.local or args.render))
+                                    other_args,
+                                    sym_link=(args.local or args.render))
     else:
-        extra_args_str = None
         gridargs_list = None
+        for filename in args.files:
+            utils.create_parent_log_dir(filename, extra_args_str)
+            utils.cache_code_dir(filename, args.git_commit_agents, args.git_commit_grasp_env,
+                                extra_args_str, sym_link=(args.local or args.render))
 
     # fine_tune checkpoint
     if args.fine_tune_exp and args.fine_tune_ts:
@@ -94,7 +87,6 @@ def main():
     # run the experiment(s)
     if args.local or args.render:
         assert len(args.files) == 1
-        assert not args.mlsh
         if ckpt_file:
             # TODO: fix seed
             with open(ckpt_file.format(1)) as cf:
@@ -114,7 +106,7 @@ def main():
         # old machines can not run tensorflow >1.5
         use_tf15 = True if args.machines == 's' or args.tf15 else False
         JobPPO = utils.get_job(
-            cluster, p_options, args.besteffort, args.nb_cores, args.wallclock, use_tf15, args.mlsh)
+            cluster, p_options, args.besteffort, args.nb_cores, args.wallclock, use_tf15)
 
         for filename in args.files:
             if gridargs_list is not None:
