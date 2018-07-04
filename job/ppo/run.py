@@ -43,7 +43,7 @@ def main():
                         help='Git commit to checkout the grasp_env repo to')
     parser.add_argument('-m', '--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
-                        'the choice should be in {\'s\', \'f\'} (slow or fast).')
+                        'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
     parser.add_argument('--tf15', default=True, action='store_false',
                         help='Whether to use tensorflow 1.5')
     parser.add_argument('-fte', '--fine_tune_exp', type=str, default=None,

@@ -38,7 +38,7 @@ def main():
                         help='Number of steps of the experiment (if not None, change the config)')
     parser.add_argument('-m', '--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
-                        'the choice should be in {\'s\', \'f\'} (slow or fast).')
+                        'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
     parser.add_argument('--tf15', default=True, action='store_false',
                         help='Whether to use tensorflow 1.5')
     args = parser.parse_args()
@@ -56,7 +56,7 @@ def main():
         assert len(args.exp_path) == 1
         config = utility.load_config(args.exp_path[0])
         with config.unlocked:
-            config.num_agents = 4
+            config.num_agents = 1
             if args.steps is not None:
                 config.steps = args.steps
 

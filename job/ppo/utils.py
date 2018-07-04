@@ -90,6 +90,8 @@ def cache_code_dir(args_file, commit_agents, commit_grasp_env, gridargs=None, sy
         os.makedirs(cache_dir)
         cmd('cp -R /home/thoth/apashevi/Code/rlgrasp {}/'.format(cache_dir))
         cmd('cp -R /home/thoth/apashevi/Code/agents {}/'.format(cache_dir))
+        # TODO: remove the rllab-shane thing
+        cmd('cp -R /home/thoth/apashevi/Code/rllab-shane {}/'.format(cache_dir))
     else:
         os.symlink('/home/thoth/apashevi/Code', cache_dir)
     if commit_agents is not None:
@@ -169,7 +171,7 @@ def rewrite_rendered_envs_file(make_render=False, rendered_envs_path=RENDERED_EN
 def get_sys_path_clean():
     sys_path_clean = []
     for path in sys.path:
-        if CODE_DIRNAME not in path:
+        if CODE_DIRNAME not in path and CODE_DIRNAME.replace('thoth/', '') not in path:
             sys_path_clean.append(path)
     return sys_path_clean
 
@@ -180,6 +182,9 @@ def change_sys_path(sys_path_clean, logdir):
     cachedir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     sys.path.append(os.path.join(cachedir, 'agents'))
     sys.path.append(os.path.join(cachedir, 'rlgrasp'))
+    # TODO: remove the rllab-shane thing
+    sys.path.append(os.path.join(cachedir, 'rllab-shane'))
+    print(sys.path)
 
 
 def str2bool(v):
