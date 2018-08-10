@@ -28,7 +28,7 @@ def manage(jobs, only_initialization=True, sleep_duration=20):
             # runs waiting because of max default jobs
             selected_jobs = []
             for job in jobs_waiting_max_default_jobs:
-                if run_available(job.machine_name, selected_jobs):
+                if run_available(job.machine_name, selected_jobs) or job.besteffort:
                     selected_jobs.append(job)
             for job in selected_jobs:
                 job.run()
@@ -42,7 +42,7 @@ def run_available(machine_name, selected_runs):
     jobs_nb = 0
     # check number of jobs on clusters
     for line in oarstat_lines:
-        if LOGIN in line:
+        if LOGIN in line and 'T=besteffort' not in line:
             jobs_nb += 1
     # check number of jobs already selected
     for run in selected_runs:

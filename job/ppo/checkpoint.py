@@ -47,7 +47,8 @@ def main():
     seed_path, timestamp_dir = os.path.split(os.path.normpath(args.exp_path[0]))
     exp_path, _ = os.path.split(os.path.normpath(seed_path))
     exp_name = os.path.basename(exp_path)
-    rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
+    rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rlgrasp/rendered_envs.py'.format(exp_name)
+    # rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
     if not args.cpu and not args.edgar:
         # run the job locally
         utils.change_sys_path(sys_path_clean, exp_path)
@@ -59,6 +60,7 @@ def main():
             config.num_agents = 1
             if args.steps is not None:
                 config.steps = args.steps
+
 
         utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)
         for score in trainer.train(config, not args.no_env_process):
@@ -72,10 +74,7 @@ def main():
         else:
             cluster = 'access1-cp'
         utils.rewrite_rendered_envs_file(False, rendered_envs_path)
-        if not args.edgar and args.machines:
-            p_options = utils.get_shared_machines_p_option(args.machines)
-        else:
-            p_options = ''
+        p_options = utils.get_shared_machines_p_option(cluster, args.machines)
         # old machines can not run tensorflow >1.5
         use_tf15 = True if args.machines == 's' or args.tf15 else False
         job_cluster = utils.get_job(

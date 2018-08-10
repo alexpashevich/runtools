@@ -110,6 +110,7 @@ class MenuDemo:
     KEY_k = 107
     KEY_g = 103
     KEY_G = 71
+    KEY_u = 117
 
     outputLines = []
     screen = None
@@ -126,10 +127,12 @@ class MenuDemo:
         self.run()
 
     def run(self):
+        force_update = True
         while True:
-            self.displayScreen()
+            self.displayScreen(force_update)
             # get user command
             c = self.screen.getch()
+            force_update = (c == self.KEY_u)
             if c == curses.KEY_UP or c == self.KEY_k:
                 self.updown(self.UP)
             elif c == curses.KEY_DOWN or c == self.KEY_j:
@@ -137,8 +140,8 @@ class MenuDemo:
             elif c == self.ESC_KEY or c == self.KEY_q:
                 self.exit()
 
-    def getOutputLines(self):
-        if time.time() - self.lastSummariesUpdate < 30:
+    def getOutputLines(self, force_update=False):
+        if time.time() - self.lastSummariesUpdate < 30 and not force_update:
             return
 
         machines = [GPU_MACHINE, CPU_MACHINE]
@@ -183,10 +186,10 @@ class MenuDemo:
         if self.topLineNum > self.nOutputLines:
             self.topLineNum = self.nOutputLines // curses.LINES * curses.LINES
 
-    def displayScreen(self):
+    def displayScreen(self, force_update):
         # clear screen
         self.screen.erase()
-        self.getOutputLines()
+        self.getOutputLines(force_update)
 
         # now paint the rows
         top = self.topLineNum
