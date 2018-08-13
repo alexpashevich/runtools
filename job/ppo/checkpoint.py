@@ -36,11 +36,11 @@ def main():
                         help='Job wall clock time to be set on the cluster')
     parser.add_argument('-s', '--steps', type=int, default=None,
                         help='Number of steps of the experiment (if not None, change the config)')
+    parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
+                        help='Which script to run.')
     parser.add_argument('-m', '--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('--tf15', default=True, action='store_false',
-                        help='Whether to use tensorflow 1.5')
     args = parser.parse_args()
 
     sys_path_clean = utils.get_sys_path_clean()
@@ -75,10 +75,8 @@ def main():
             cluster = 'access1-cp'
         utils.rewrite_rendered_envs_file(False, rendered_envs_path)
         p_options = utils.get_shared_machines_p_option(cluster, args.machines)
-        # old machines can not run tensorflow >1.5
-        use_tf15 = True if args.machines == 's' or args.tf15 else False
         job_cluster = utils.get_job(
-            cluster, p_options, args.besteffort, args.nb_cores, args.wallclock, use_tf15)
+            cluster, p_options, args.script, args.besteffort, args.nb_cores, args.wallclock)
         timestamp = timestamp_dir.split('-')[0]
         config =  timestamp_dir.split('-')[1]
         if len(args.exp_path) == 1:

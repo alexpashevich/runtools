@@ -5,10 +5,13 @@ import telegram_send
 
 from job.ppo import utils
 from copy import deepcopy
+import numpy as np
 
 TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
 def cache_code(exp_name_list, config, mode):
+    if config.do_not_cache_code:
+        return
     if len(exp_name_list) > 1:
         assert mode not in {'local', 'render'}
     do_not_cache_code = mode in {'local', 'render'}
@@ -17,6 +20,11 @@ def cache_code(exp_name_list, config, mode):
         utils.create_parent_log_dir(exp_name)
         utils.cache_code_dir(exp_name, config.git_commit_agents, config.git_commit_grasp_env,
                              sym_link=do_not_cache_code)
+
+def send_report_message(exp_name, exp_meta, seeds, mode):
+    report_message = 'launched job {0} (seeds %s) on %s\ndetails = {1}'.format(exp_name, exp_meta)
+    report_message = report_message % (seeds, mode)
+    telegram_send.send([report_message])
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -52,10 +60,14 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('--tf15', default=True, action='store_false',
-                        help='Whether to use tensorflow 1.5')
+    parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
+                        help='Which script to run.')
+    parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
+                        help='If the code caching should be disabled')
+    parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
+                        help='First experiment name id.')
     # Google Cloud Engine settings
-    parser.add_argument('-i', '--gce_id', type=str, default=None,
+    parser.add_argument('-i', '--gce_id', type=int, default=None,
                         help='Google Compute Engine id in $GINSTS (starting from 1).')
     parser.add_argument('-ng', '--num_gce', type=int, default=1,
                         help='Number of GCE to distribute the experiments.')
@@ -66,7 +78,7 @@ def main():
     config = parse_config()
     mode = utils.get_mode(config)
     # TODO: implement some metrics to see the running status of the jobs without rendering (area under the curve)
-    exp_name_list, args_list, exp_meta_list = utils.get_exp_lists(config)
+    exp_name_list, args_list, exp_meta_list = utils.get_exp_lists(config, config.first_exp_id)
     if config.exp_names:
         assert len(exp_name_list) == len(config.exp_names)
         exp_name_list = config.exp_names
@@ -76,7 +88,6 @@ def main():
 
     # run the experiment(s)
     for exp_id, (exp_name, args, exp_meta) in enumerate(zip(exp_name_list, args_list, exp_meta_list)):
-        report_message = 'launched job {0} (seeds %s) on %s\ndetails = {1}'.format(exp_name, exp_meta)
         if mode in ('local', 'render'):
             # run locally
             assert len(exp_name_list) == 1
@@ -86,23 +97,22 @@ def main():
         elif mode != 'gce':
             # run on INRIA cluster
             p_options = utils.get_shared_machines_p_option(mode, config.machines)
-            use_tf15 = True if config.machines == 's' or config.tf15 else False
             JobPPO = utils.get_job(
-                mode, p_options, config.besteffort, config.num_cores, config.wallclock, use_tf15)
+                mode, p_options, config.script, config.besteffort, config.num_cores, config.wallclock)
             all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
             for seed in all_seeds:
                 utils.run_job_cluster(exp_name, args, seed, config.num_seeds, JobPPO, TIMESTAMP)
-            report_message = report_message % (list(all_seeds), mode)
+            send_report_message(exp_name, exp_meta, list(all_seeds), mode)
         else:
             # run on GCE
-            # If more than a single node to submit, change gce_id
-            gce_id = config.gce_id + exp_id % config.num_gce
             all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
             for seed in all_seeds:
+                exp_number = seed - config.first_seed + exp_id * config.num_seeds
+                exp_total = len(exp_name_list) * config.num_seeds
+                # If more than a single node to submit, change gce_id
+                gce_id = int(config.gce_id + exp_number // (exp_total / config.num_gce))
                 utils.run_job_gce(exp_name, args, seed, config.num_seeds, TIMESTAMP, gce_id)
-            report_message = report_message % (list(all_seeds), mode + '-' + str(gce_id))
-        if mode not in ('local', 'render'):
-            telegram_send.send([report_message])
+                send_report_message(exp_name, exp_meta, [seed], mode + '-' + str(gce_id))
 
 
 if __name__ == '__main__':

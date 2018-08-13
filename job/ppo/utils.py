@@ -49,7 +49,7 @@ def get_file_name(args_file):
     return exp_name
 
 
-def get_exp_lists(config):
+def get_exp_lists(config, first_exp_id=1):
     gridargs_list = get_gridargs_list(config.grid)
     exp_name_list, args_list, exp_meta_list = [], [], []
     for args_file in config.files:
@@ -59,7 +59,7 @@ def get_exp_lists(config):
             args = append_args(args, config.extra_args)
             if len(gridargs_list) > 1:
                 # TODO: check if this exp does not exist yet
-                exp_name += '_v' + str(i+1)
+                exp_name += '_v' + str(i+first_exp_id)
             exp_name_list.append(exp_name)
             args_list.append(args)
             exp_meta_list.append(
@@ -118,16 +118,13 @@ def create_parent_log_dir(exp_name):
         os.makedirs(log_dir)
 
 
-def create_log_dir(args, exp_name, seed):
+def append_log_dir(args, exp_name, seed):
     if '--logdir=' not in args:
-        log_dir = os.path.join("/scratch/gpuhost7/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
-        if not os.path.exists(log_dir):
-            os.makedirs(log_dir)
+        log_dir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
         args += ' --logdir=' + log_dir
     else:
         print('WARNING: logdir is already specified in the file')
     return args
-
 
 def run_job_local(exp_name, args, seed=None):
     # log dir creation
@@ -135,7 +132,7 @@ def run_job_local(exp_name, args, seed=None):
         seed = 0
     else:
         args = append_args(args, ['seed={}'.format(seed)])
-    args = create_log_dir(args, exp_name, seed)
+    args = append_log_dir(args, exp_name, seed)
     os.chdir('/home/thoth/apashevi/Code/agents/')
     # running the script
     script = 'python3 -m agents.scripts.train ' + args
@@ -144,8 +141,8 @@ def run_job_local(exp_name, args, seed=None):
 
 
 def run_job_cluster(exp_name, args, seed, nb_seeds, job_class, timestamp):
-    # log dir creationg
-    args = create_log_dir(args, exp_name, seed)
+    # log dir creation
+    args = append_log_dir(args, exp_name, seed)
     # adding the seed to arguments and exp_name
     if '--seed=' not in args:
         args += ' --seed=%d' % seed
@@ -165,6 +162,8 @@ def get_gce_instance_ip(gce_id):
     return os.environ['GINSTS'].split('\x1e')[gce_id-1]
 
 def run_job_gce(exp_name, args, seed, nb_seeds, timestamp, gce_id):
+    # log dir creation
+    args = append_log_dir(args, exp_name, seed)
     if '--seed=' not in args:
         args += ' --seed=%d' % seed
         exp_name += '-s%d' % seed
@@ -174,10 +173,11 @@ def run_job_gce(exp_name, args, seed, nb_seeds, timestamp, gce_id):
                               'specified in the argument file'))
     if '--timestamp=' not in args:
         args += ' --timestamp={}'.format(timestamp)
-    args += ' --logdir=/home/apashevi/Logs/agents/{}'.format(exp_name)
+    # args += ' --logdir=/home/apashevi/Logs/agents/{}'.format(exp_name)
     # running the script
     ld_library_path = "export LD_LIBRARY_PATH=$LD_LIBRARY_PATH:/home/apashevi/.mujoco/mjpro150/bin"
     script_local = '{}; export PYTHONPATH=$HOME/Code/rlgrasp:$HOME/Code/agents; cd Code/agents; python3 -m agents.scripts.train {}'.format(ld_library_path, args)
+    print('Running on gce-{}'.format(gce_id))
     print(script_local)
     logdir = os.path.join(LOGS_PATH, 'oarsub', exp_name)
     if not os.path.exists(logdir):
@@ -224,25 +224,13 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, use_tf15=False):
-    if not use_tf15:
-        path_exe = 'ppo_mini.sh'
-    else:
-        path_exe = 'ppo_mini_tf15ucpu.sh'
+def get_job(cluster, p_options, script, besteffort=False, nb_cores=8, wallclock=None):
     if cluster == 'edgar':
-        # if not use_tf15:
-        #     path_exe = 'ppo_mini.sh'
-        # else:
-        #     path_exe = 'ppo_mini_tf15.sh'
         parent_job = JobGPU
         wallclock = 12 if wallclock is None else wallclock
         time = '{}:0:0'.format(wallclock) if isinstance(wallclock, int) else wallclock
         l_options = ['walltime={}:0:0'.format(time)]
     elif cluster == 'access1-cp':
-        # if not use_tf15:
-        #     path_exe = 'ppo_mini_cpu.sh'
-        # else:
-        #     path_exe = 'ppo_mini_tf15ucpu.sh'
         parent_job = JobSharedCPU
         wallclock = 72 if wallclock is None else wallclock
         time = '{}:0:0'.format(wallclock) if isinstance(wallclock, int) else wallclock
@@ -254,7 +242,7 @@ def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None, us
         def __init__(self, run_argv, p_options):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
-            self.local_path_exe = path_exe
+            self.local_path_exe = script
             self.job_name = run_argv[0]
             self.interpreter = ''
             self.besteffort = besteffort
