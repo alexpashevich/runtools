@@ -14,10 +14,6 @@ from settings import CODE_DIRNAME, HOME
 
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 LOGS_PATH = os.path.join(HOME, 'Logs')
-RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rlgrasp/rendered_envs.py'
-#RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
-# old for TF agents
-#USED_CODE_DIRS = 'rlgrasp', 'agents', 'rllab-shane'
 # new for pytorch ppo
 USED_CODE_DIRS = 'mime', 'ppo', 'bc'
 ALLOWED_MODES = ('local', 'render', 'access1-cp', 'edgar', 'gce')
@@ -201,15 +197,6 @@ def run_job_gce(exp_name, args, seed, nb_seeds, timestamp, gce_id):
         ["ssh", ssh_ip, script_local],
         shell=False, stdout=stdoutf, stderr=stderrf)
     print('...\n...\n...')
-    # os.system(script)
-
-def rewrite_rendered_envs_file(make_render=False, rendered_envs_path=RENDERED_ENVS_PATH):
-    rendered_ids = '1' if make_render else ''
-    content = 'rendered_envs = [{}]; reported_envs = []'.format(rendered_ids)
-    with open(rendered_envs_path, 'r+') as pyfile:
-        pyfile.seek(0)
-        pyfile.write(content)
-        pyfile.truncate()
 
 
 def get_sys_path_clean():

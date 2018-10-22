@@ -47,8 +47,6 @@ def main():
     seed_path, timestamp_dir = os.path.split(os.path.normpath(args.exp_path[0]))
     exp_path, _ = os.path.split(os.path.normpath(seed_path))
     exp_name = os.path.basename(exp_path)
-    rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rlgrasp/rendered_envs.py'.format(exp_name)
-    # rendered_envs_path = '/home/thoth/apashevi/scratch_remote/Cache/Code/{}/rlgrasp/rendered_envs.py'.format(exp_name)
     if not args.cpu and not args.edgar:
         # run the job locally
         utils.change_sys_path(sys_path_clean, exp_path)
@@ -61,18 +59,13 @@ def main():
             if args.steps is not None:
                 config.steps = args.steps
 
-        utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)
         for score in trainer.train(config, not args.no_env_process):
             print('Score {}'.format(score))
-
-        if args.render:
-            utils.rewrite_rendered_envs_file(False, rendered_envs_path)
     else:
         if args.edgar:
             cluster = 'edgar'
         else:
             cluster = 'access1-cp'
-        utils.rewrite_rendered_envs_file(False, rendered_envs_path)
         p_options = utils.get_shared_machines_p_option(cluster, args.machines)
         job_cluster = utils.get_job(
             cluster, p_options, args.script, args.besteffort, args.nb_cores, args.wallclock)

@@ -86,7 +86,6 @@ def main():
         assert len(exp_name_list) == len(config.exp_names)
         exp_name_list = config.exp_names
 
-    utils.rewrite_rendered_envs_file(make_render=(mode == 'render'))
     cache_code(exp_name_list, config, mode)
 
     # run the experiment(s)
@@ -95,8 +94,6 @@ def main():
             # run locally
             assert len(exp_name_list) == 1
             utils.run_job_local(exp_name, args, seed=config.seed)
-            if mode == 'render':
-                utils.rewrite_rendered_envs_file(make_render=False)
         elif mode != 'gce':
             # run on INRIA cluster
             p_options = utils.get_shared_machines_p_option(mode, config.machines)
