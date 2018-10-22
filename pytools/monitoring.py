@@ -51,10 +51,15 @@ def cut_value(string, keyword):
 
 def cut_step(string):
     try:
-        substring = 'global step '
+        # version for TF agents
+        # substring = 'global step '
+        # begin = string.rfind(substring)
+        # string_temp = string[begin + len(substring):]
+        # end = string_temp.find(')')
+        substring = 'Training after '
         begin = string.rfind(substring)
         string_temp = string[begin + len(substring):]
-        end = string_temp.find(')')
+        end = string_temp.find(' steps')
         step = string_temp[:end].strip()
         if len(step) > 15:
             return 'n/a'
@@ -86,8 +91,9 @@ def getMachineSummary(machine, keywords):
                 job_name = job_name.split(',')[0]
         duration = (job.split(' R=')[0]).split(' ')[-1]
         job_list = [job_name, job_id, duration]
-        # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
-        oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
+        oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
+        # version for TF agents
+        # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
         try:
             oarout_list = tail(open(oarout, 'r'), 300)
         except:

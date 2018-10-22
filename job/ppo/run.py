@@ -4,22 +4,24 @@ import json
 import telegram_send
 
 from job.ppo import utils
-from copy import deepcopy
-import numpy as np
 
 TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
 def cache_code(exp_name_list, config, mode):
+    for exp_name in exp_name_list:
+        utils.create_parent_log_dir(exp_name)
     if config.do_not_cache_code:
         return
     if len(exp_name_list) > 1:
         assert mode not in {'local', 'render'}
-    do_not_cache_code = mode in {'local', 'render'}
-    # do_not_cache_code = True
-    for exp_name in exp_name_list:
-        utils.create_parent_log_dir(exp_name)
-        utils.cache_code_dir(exp_name, config.git_commit_agents, config.git_commit_grasp_env,
-                             sym_link=do_not_cache_code)
+    make_sym_link = mode in {'local', 'render'}
+    # make_sym_link = True
+    utils.cache_code_dir(
+        exp_name_list[0], config.git_commit_agents, config.git_commit_grasp_env, make_sym_link)
+    # cache only the first exp directory, others are sym links to it
+    for exp_name in exp_name_list[1:]:
+        utils.cache_code_dir(exp_name, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+
 
 def send_report_message(exp_name, exp_meta, seeds, mode):
     report_message = 'launched job {0} (seeds %s) on %s\ndetails = {1}'.format(exp_name, exp_meta)
@@ -60,7 +62,8 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
+    #parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
+    parser.add_argument('--script', default='ppo_pytorch.sh',
                         help='Which script to run.')
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
                         help='If the code caching should be disabled')

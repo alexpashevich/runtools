@@ -61,7 +61,6 @@ def main():
             if args.steps is not None:
                 config.steps = args.steps
 
-
         utils.rewrite_rendered_envs_file(args.render, rendered_envs_path)
         for score in trainer.train(config, not args.no_env_process):
             print('Score {}'.format(score))

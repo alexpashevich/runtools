@@ -1,6 +1,6 @@
 from job.job_meta import JobMeta
 from pytools.tools import cmd
-from settings import LOGIN, MAX_DEFAULT_JOBS
+from settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
 
 """ Class of functions that take a list of JobMeta as input """
 
@@ -28,7 +28,7 @@ def manage(jobs, only_initialization=True, sleep_duration=20):
             # runs waiting because of max default jobs
             selected_jobs = []
             for job in jobs_waiting_max_default_jobs:
-                if run_available(job.machine_name, selected_jobs) or job.besteffort:
+                if run_available(job.machine_name, selected_jobs, job.besteffort):
                     selected_jobs.append(job)
             for job in selected_jobs:
                 job.run()
@@ -37,15 +37,36 @@ def manage(jobs, only_initialization=True, sleep_duration=20):
             cmd('sleep %i' % sleep_duration)
 
 
-def run_available(machine_name, selected_runs):
+def run_available(machine_name, selected_runs, besteffort):
     oarstat_lines = cmd("ssh " + machine_name + " ' oarstat ' ")
-    jobs_nb = 0
+    cores_besteffort_nb = 0
+    cores_default_nb = 0
     # check number of jobs on clusters
     for line in oarstat_lines:
-        if LOGIN in line and 'T=besteffort' not in line:
-            jobs_nb += 1
+        if LOGIN in line:
+            try:
+                job_cores = int(line.split('R=')[1].split(',')[0])
+                if 'T=besteffort' not in line:
+                    cores_default_nb += job_cores
+                else:
+                    cores_besteffort_nb += job_cores
+            except:
+                cores_default_nb += 8
+                cores_besteffort_nb += 8
+
     # check number of jobs already selected
     for run in selected_runs:
         if run.machine_name == machine_name:
-            jobs_nb += 1
-    return jobs_nb < MAX_DEFAULT_JOBS[machine_name]
+            if 'core=' in run.oarsub_l_options:
+                job_cores = int(run.oarsub_l_options.split('core=')[1].split(',')[0])
+            else:
+                job_cores = 1
+            if run.besteffort:
+                cores_besteffort_nb += job_cores
+            else:
+                cores_default_nb += job_cores
+    if besteffort:
+        return cores_besteffort_nb < MAX_BESTEFFORT_CORES[machine_name]
+    else:
+        return cores_default_nb < MAX_DEFAULT_CORES[machine_name]
+

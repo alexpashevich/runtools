@@ -15,7 +15,11 @@ from settings import CODE_DIRNAME, HOME
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 LOGS_PATH = os.path.join(HOME, 'Logs')
 RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rlgrasp/rendered_envs.py'
-USED_CODE_DIRS = 'rlgrasp', 'agents', 'rllab-shane'
+#RENDERED_ENVS_PATH = '/home/thoth/apashevi/Code/rlgrasp/rendered_envs.py'
+# old for TF agents
+#USED_CODE_DIRS = 'rlgrasp', 'agents', 'rllab-shane'
+# new for pytorch ppo
+USED_CODE_DIRS = 'mime', 'ppo', 'bc'
 ALLOWED_MODES = ('local', 'render', 'access1-cp', 'edgar', 'gce')
 
 def read_args(args_file):
@@ -92,7 +96,9 @@ def append_args(args, extra_args):
     return args
 
 
-def cache_code_dir(exp_name, commit_agents, commit_grasp_env, sym_link=False):
+def cache_code_dir(
+        exp_name, commit_agents, commit_grasp_env,
+        sym_link=False, sym_link_to_exp=None):
     cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
@@ -104,7 +110,11 @@ def cache_code_dir(exp_name, commit_agents, commit_grasp_env, sym_link=False):
         for code_dir in USED_CODE_DIRS:
             cmd('cp -R /home/thoth/apashevi/Code/{} {}/'.format(code_dir, cache_dir))
     else:
-        os.symlink('/home/thoth/apashevi/Code', cache_dir)
+        if not sym_link_to_exp:
+            sym_link_to = '/home/thoth/apashevi/Code'
+        else:
+            sym_link_to = os.path.join('/scratch/gpuhost7/apashevi/Cache/Code/', sym_link_to_exp)
+        os.symlink(sym_link_to, cache_dir)
     if commit_agents is not None:
         checkout_repo(os.path.join(cache_dir, 'agents'), commit_agents)
     if commit_grasp_env is not None:
@@ -133,9 +143,11 @@ def run_job_local(exp_name, args, seed=None):
     else:
         args = append_args(args, ['seed={}'.format(seed)])
     args = append_log_dir(args, exp_name, seed)
-    os.chdir('/home/thoth/apashevi/Code/agents/')
+    # os.chdir('/home/thoth/apashevi/Code/agents/')
+    os.chdir('/home/thoth/apashevi/Code/ppo/')
     # running the script
-    script = 'python3 -m agents.scripts.train ' + args
+    # script = 'python3 -m agents.scripts.train ' + args
+    script = 'python3 main.py ' + args
     print('Running:\n' + script)
     os.system(script)
 
@@ -283,7 +295,8 @@ def get_shared_machines_p_option(mode, machines):
     if mode != 'access1-cp':
         return ''
     # old machines can not run tensorflow >1.5
-    nodes = {'s': list(range(1, 15)), 'f': list(range(21, 45)) + list(range(51, 55))}
+    nodes = {'s': list(range(1, 15)) + [36],
+             'f': list(range(21, 36)) + list(range(37, 35)) + list(range(51, 55))}
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
     elif machines == 'f':
