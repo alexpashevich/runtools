@@ -301,6 +301,6 @@ def get_mode(config):
         mode = [mode for mode in ALLOWED_MODES if mode[0] == config.mode][0]
     else:
         raise ValueError('mode {} is not allowed, available modes: {}'.format(config.mode, ALLOWED_MODES))
-    assert not (config.gce_id and mode != 'gce')
+    if mode == 'gce':
+        assert not (config.gce_id and mode != 'gce')
     return mode
-

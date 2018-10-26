@@ -6,14 +6,22 @@ import tensorflow as tf
 from job.ppo import utils
 from job.job_manager import manage
 
-def send_job(job, seed_path, timestamp, config, args_steps):
+def get_train_args(seed_path, timestamp, device):
+    # we can pass the cuda arg as well
+    _, seed_dir = os.path.split(os.path.normpath(seed_path))
+    seed = seed_dir.replace('seed', '')
+    train_args = '--logdir={} --timestamp={} --seed={}'.format(seed_path, timestamp, seed)
+    if device:
+        train_args += ' --device={}'.format(device)
+    return train_args
+
+def send_job(job, seed_path, timestamp, device):
     ''' Send a job to the cluster '''
-    train_args = '--logdir={} --timestamp={} --config={}'.format(seed_path, timestamp, config)
-    if args_steps is not None:
-        train_args += ' --steps={}'.format(args_steps)
     exp_path, seed_dir = os.path.split(os.path.normpath(seed_path))
     exp_name = os.path.basename(exp_path)
-    exp_name_seed = '{}-s{}'.format(exp_name, seed_dir.replace('seed', ''))
+    seed = seed_dir.replace('seed', '')
+    exp_name_seed = '{}-s{}'.format(exp_name, seed)
+    train_args = get_train_args(seed_path, timestamp, device)
     manage([job([exp_name_seed, train_args])], only_initialization=False, sleep_duration=1)
 
 def main():
@@ -22,61 +30,44 @@ def main():
                         help='Full experiment path (to the dir where the config is stored)')
     parser.add_argument('-nep', '--no_env_process', default=False, action='store_true',
                         help='Step environments in separate processes to circumvent the GIL')
-    parser.add_argument('-r', '--render', default=False, action='store_true',
-                        help='Whether to render the run')
-    parser.add_argument('-c', '--cpu', default=False, action='store_true',
-                        help='Whether to run the training on access1-cp')
-    parser.add_argument('-e', '--edgar', default=False, action='store_true',
-                        help='Whether to run the training on edgar')
+    parser.add_argument('-m', '--mode', type=str, default='local',
+                        help='One of $utils.ALLOWED_MODES (or the first letter).')
     parser.add_argument('-b', '--besteffort', default=False, action='store_true',
                         help='Whether to run in besteffort mode')
     parser.add_argument('-nc', '--nb_cores', type=int, default=8,
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72,
                         help='Job wall clock time to be set on the cluster')
-    parser.add_argument('-s', '--steps', type=int, default=None,
-                        help='Number of steps of the experiment (if not None, change the config)')
-    parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
+    parser.add_argument('--script', default='ppo_pytorch.sh',
                         help='Which script to run.')
-    parser.add_argument('-m', '--machines', type=str, default='f',
+    parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
+    parser.add_argument('--device', type=str, default=None,
+                        help='which device to run the experiments on: cuda or cpu')
     args = parser.parse_args()
 
-    sys_path_clean = utils.get_sys_path_clean()
+    mode = utils.get_mode(args)
     seed_path, timestamp_dir = os.path.split(os.path.normpath(args.exp_path[0]))
     exp_path, _ = os.path.split(os.path.normpath(seed_path))
     exp_name = os.path.basename(exp_path)
-    if not args.cpu and not args.edgar:
+    if mode in ('local', 'render'):
+        # TODO: implement the rendering mode
         # run the job locally
-        utils.change_sys_path(sys_path_clean, exp_path)
-        import agents.scripts.train as trainer
-        from agents.scripts import utility
         assert len(args.exp_path) == 1
-        config = utility.load_config(args.exp_path[0])
-        with config.unlocked:
-            config.num_agents = 1
-            if args.steps is not None:
-                config.steps = args.steps
-
-        for score in trainer.train(config, not args.no_env_process):
-            print('Score {}'.format(score))
+        train_args = get_train_args(seed_path, timestamp_dir, args.device)
+        os.system('cd $HOME/Scripts; ./{} {} {}'.format(
+            args.script, exp_name, train_args))
     else:
-        if args.edgar:
-            cluster = 'edgar'
-        else:
-            cluster = 'access1-cp'
-        p_options = utils.get_shared_machines_p_option(cluster, args.machines)
+        p_options = utils.get_shared_machines_p_option(mode, args.machines)
         job_cluster = utils.get_job(
-            cluster, p_options, args.script, args.besteffort, args.nb_cores, args.wallclock)
-        timestamp = timestamp_dir.split('-')[0]
-        config =  timestamp_dir.split('-')[1]
+            mode, p_options, args.script, args.besteffort, args.nb_cores, args.wallclock)
         if len(args.exp_path) == 1:
-            send_job(job_cluster, seed_path, timestamp, config, args.steps)
+            send_job(job_cluster, seed_path, timestamp_dir, args.device)
         else:
             for exp_path_complete in args.exp_path:
                 seed_path, _ = os.path.split(os.path.normpath(exp_path_complete))
-                send_job(job_cluster, seed_path, timestamp, config, args.steps)
+                send_job(job_cluster, seed_path, timestamp_dir, args.device)
 
 
 

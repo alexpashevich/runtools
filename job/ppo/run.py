@@ -62,7 +62,6 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    #parser.add_argument('--script', default='ppo_mini_tf15ucpu.sh',
     parser.add_argument('--script', default='ppo_pytorch.sh',
                         help='Which script to run.')
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
