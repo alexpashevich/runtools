@@ -31,10 +31,11 @@ def read_args(args_file):
                 if char == ' ':
                     print('WARNING: char(s) \'{}\' was found in {} and erased'.format(char, line))
                 line = line.replace(char, '')
-        if line[:2] == '--':
-            args += ' ' + line
-        else:
-            args += line
+        args += ' ' + line
+        # if line[:2] == '--':
+        #     args += ' ' + line
+        # else:
+        #     args += line
         if '--exp=' in line:
             exp_name = line[line.find('--exp=') + len('--exp='):]
     if exp_name is None:
@@ -132,23 +133,22 @@ def append_log_dir(args, exp_name, seed):
         print('WARNING: logdir is already specified in the file')
     return args
 
-def run_job_local(exp_name, args, seed=None):
+def run_job_local(exp_name, args, script, seed=None, render=False):
     # log dir creation
     if seed is None:
         seed = 0
     else:
         args = append_args(args, ['seed={}'.format(seed)])
     args = append_log_dir(args, exp_name, seed)
-    # os.chdir('/home/thoth/apashevi/Code/agents/')
-    os.chdir('/home/thoth/apashevi/Code/ppo/')
-    # running the script
-    # script = 'python3 -m agents.scripts.train ' + args
-    script = 'python3 main.py ' + args
+    # os.chdir('/home/thoth/apashevi/Code/ppo/')
+    script = 'python3 -m {} {}'.format(script, args)
+    if render:
+        script += ' --render'
     print('Running:\n' + script)
     os.system(script)
 
 
-def run_job_cluster(exp_name, args, seed, nb_seeds, job_class, timestamp):
+def run_job_cluster(exp_name, args, script, seed, nb_seeds, job_class, timestamp):
     # log dir creation
     args = append_log_dir(args, exp_name, seed)
     # adding the seed to arguments and exp_name
@@ -162,7 +162,7 @@ def run_job_cluster(exp_name, args, seed, nb_seeds, job_class, timestamp):
     if '--timestamp=' not in args:
         args += ' --timestamp={}'.format(timestamp)
     # running the job
-    manage([job_class([exp_name, args])], only_initialization=False, sleep_duration=1)
+    manage([job_class([exp_name, script, args])], only_initialization=False, sleep_duration=1)
     print('...\n...\n...')
 
 def get_gce_instance_ip(gce_id):
@@ -223,7 +223,7 @@ def str2bool(v):
     else:
         raise TypeError('Boolean value expected.')
 
-def get_job(cluster, p_options, script, besteffort=False, nb_cores=8, wallclock=None):
+def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
     if cluster == 'edgar':
         parent_job = JobGPU
         wallclock = 12 if wallclock is None else wallclock
@@ -241,7 +241,7 @@ def get_job(cluster, p_options, script, besteffort=False, nb_cores=8, wallclock=
         def __init__(self, run_argv, p_options):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
-            self.local_path_exe = script
+            self.local_path_exe = 'run_with_pytorch.sh'
             self.job_name = run_argv[0]
             self.interpreter = ''
             self.besteffort = besteffort

@@ -62,8 +62,8 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('--script', default='ppo_pytorch.sh',
-                        help='Which script to run.')
+    parser.add_argument('-sc', '--script', default='ppo.scripts.train',
+                        help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
                         help='If the code caching should be disabled')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
@@ -79,7 +79,6 @@ def parse_config():
 def main():
     config = parse_config()
     mode = utils.get_mode(config)
-    # TODO: implement some metrics to see the running status of the jobs without rendering (area under the curve)
     exp_name_list, args_list, exp_meta_list = utils.get_exp_lists(config, config.first_exp_id)
     if config.exp_names:
         assert len(exp_name_list) == len(config.exp_names)
@@ -92,18 +91,21 @@ def main():
         if mode in ('local', 'render'):
             # run locally
             assert len(exp_name_list) == 1
-            utils.run_job_local(exp_name, args, seed=config.seed)
+            render = (mode == 'render')
+            utils.run_job_local(exp_name, args, config.script, seed=config.seed, render=render)
         elif mode != 'gce':
             # run on INRIA cluster
             p_options = utils.get_shared_machines_p_option(mode, config.machines)
             JobPPO = utils.get_job(
-                mode, p_options, config.script, config.besteffort, config.num_cores, config.wallclock)
+                mode, p_options, config.besteffort, config.num_cores, config.wallclock)
             all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
             for seed in all_seeds:
-                utils.run_job_cluster(exp_name, args, seed, config.num_seeds, JobPPO, TIMESTAMP)
+                utils.run_job_cluster(
+                    exp_name, args, config.script, seed, config.num_seeds, JobPPO, TIMESTAMP)
             send_report_message(exp_name, exp_meta, list(all_seeds), mode)
         else:
             # run on GCE
+            raise NotImplementedError('need to implement supporting the new script')
             all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
             for seed in all_seeds:
                 exp_number = seed - config.first_seed + exp_id * config.num_seeds
