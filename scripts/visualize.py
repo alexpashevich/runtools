@@ -6,7 +6,7 @@ import json
 import tensorflow as tf
 
 from pytools.tools import cmd
-from job.ppo import utils
+from . import utils
 
 
 def main():

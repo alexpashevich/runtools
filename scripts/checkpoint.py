@@ -1,9 +1,7 @@
 import os
 import argparse
 
-import tensorflow as tf
-
-from job.ppo import utils
+from . import utils
 from job.job_manager import manage
 
 def get_train_args(seed_path, timestamp, device):
@@ -55,8 +53,8 @@ def main():
         # run the job locally
         assert len(args.exp_path) == 1
         train_args = get_train_args(seed_path, timestamp_dir, args.device)
-        command = 'cd $HOME/Scripts; ./run_with_pytorch.sh {} {}'.format(
-            args.script, exp_name, train_args)
+        command = 'cd $HOME/Scripts; ./run_with_pytorch.sh {} {} {}'.format(
+            exp_name, args.script, train_args)
         if mode == 'render':
             command += ' --render'
         os.system(command)
