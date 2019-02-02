@@ -13,7 +13,8 @@ def job_local(exp_name, args, script, args_file, seed=None, render=False):
     # log dir creation
     if seed is None:
         seed = 0
-    else:
+    elif script != 'bc.net.train':
+        # in bc trainin the seed arg is not used
         argname = 'eval.seed' if '.json' in args_file else 'seed'
         args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
     args = parse.append_log_dir(args, exp_name, seed, args_file, script)
@@ -30,8 +31,10 @@ def job_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class, ti
     args = parse.append_log_dir(args, exp_name, seed, args_file, script)
     # adding the seed to arguments and exp_name
     if '--seed=' not in args:
-        argname = 'eval.seed' if '.json' in args_file else 'seed'
-        args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
+        if script != 'bc.net.train':
+            # in bc trainin the seed arg is not used
+            argname = 'eval.seed' if '.json' in args_file else 'seed'
+            args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
         exp_name += '-s%d' % seed
     else:
         if 'seed=' in args and nb_seeds > 1:
