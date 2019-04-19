@@ -34,7 +34,7 @@ def checkout_repo(repo, commit_tag):
 
 
 def cache_code_dir(
-        exp_name, commit_agents, commit_grasp_env,
+        exp_name, commit_ppo, commit_bc, commit_mime,
         sym_link=False, sym_link_to_exp=None):
     cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
     if os.path.exists(cache_dir):
@@ -52,10 +52,12 @@ def cache_code_dir(
         else:
             sym_link_to = os.path.join('/scratch/gpuhost7/apashevi/Cache/Code/', sym_link_to_exp)
         os.symlink(sym_link_to, cache_dir)
-    if commit_agents is not None:
-        checkout_repo(os.path.join(cache_dir, 'agents'), commit_agents)
-    if commit_grasp_env is not None:
-        checkout_repo(os.path.join(cache_dir, 'rlgrasp'), commit_grasp_env)
+    if commit_ppo is not None:
+        checkout_repo(os.path.join(cache_dir, 'ppo'), commit_ppo)
+    if commit_bc is not None:
+        checkout_repo(os.path.join(cache_dir, 'bc'), commit_bc)
+    if commit_mime is not None:
+        checkout_repo(os.path.join(cache_dir, 'mime'), commit_mime)
 
 
 def create_parent_log_dir(exp_name):

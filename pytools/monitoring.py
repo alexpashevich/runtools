@@ -56,10 +56,21 @@ def cut_step(string):
         # begin = string.rfind(substring)
         # string_temp = string[begin + len(substring):]
         # end = string_temp.find(')')
-        substring = 'Training after '
-        begin = string.rfind(substring)
-        string_temp = string[begin + len(substring):]
-        end = string_temp.find(' steps')
+
+        # version for ppo
+        # substring = 'Training after '
+        # begin = string.rfind(substring)
+        # string_temp = string[begin + len(substring):]
+        # end = string_temp.find(' steps')
+
+        # version for BC
+        substrings = [('Epoch ', '\n'),
+                      ('Training after ', ' steps')]
+        for begin_string, end_string in substrings:
+            if begin_string in string and end_string in string:
+                begin = string.rfind(begin_string)
+                string_temp = string[begin + len(begin_string):]
+                end = string_temp.find(end_string)
         step = string_temp[:end].strip()
         if len(step) > 15:
             return 'n/a'
@@ -96,14 +107,16 @@ def getMachineSummary(machine, keywords):
         # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
         try:
             oarout_list = tail(open(oarout, 'r'), 300)
+            oarout_string = ' '.join(oarout_list)
+            job_list.append(cut_step(oarout_string))
+            for keyword in KEYWORDS:
+                job_list.append(cut_value(oarout_string, keyword))
+                # TODO: fix cutting when a job has just started
         except:
-            continue
+            job_list.append('N/A')
+            for keyword in KEYWORDS:
+                job_list.append('N/A')
 
-        oarout_string = ' '.join(oarout_list)
-        job_list.append(cut_step(oarout_string))
-        for keyword in KEYWORDS:
-            job_list.append(cut_value(oarout_string, keyword))
-            # TODO: fix cutting when a job has just started
         machine_summary.append(job_list)
     return machine_summary
 

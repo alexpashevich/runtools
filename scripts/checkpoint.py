@@ -1,7 +1,7 @@
 import os
 import argparse
 
-from . import utils
+from scripts.utils import misc
 from job.job_manager import manage
 
 def get_train_args(seed_path, timestamp, device):
@@ -45,7 +45,7 @@ def main():
                         help='which device to run the experiments on: cuda or cpu')
     args = parser.parse_args()
 
-    mode = utils.get_mode(args)
+    mode = misc.get_mode(args)
     seed_path, timestamp_dir = os.path.split(os.path.normpath(args.exp_path[0]))
     exp_path, _ = os.path.split(os.path.normpath(seed_path))
     exp_name = os.path.basename(exp_path)
@@ -59,8 +59,8 @@ def main():
             command += ' --render'
         os.system(command)
     else:
-        p_options = utils.get_shared_machines_p_option(mode, args.machines)
-        job_cluster = utils.get_job(
+        p_options = misc.get_shared_machines_p_option(mode, args.machines)
+        job_cluster = misc.get_job(
             mode, p_options, args.besteffort, args.nb_cores, args.wallclock)
         if len(args.exp_path) == 1:
             send_job(job_cluster, seed_path, timestamp_dir, args.device, args.script)

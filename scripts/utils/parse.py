@@ -43,6 +43,8 @@ def parse_json_dict(args_dict, base):
         if isinstance(v, dict):
             results += parse_json_dict(v, '{}{}.'.format(base, k))
         else:
+            if isinstance(v, str) and v[0] == '[' and v[-1] == ']':
+                v = '\"{}\"'.format(v)
             results.append('{}{}={}'.format(base, k, v))
     return results
 
@@ -73,8 +75,12 @@ def get_exp_lists(config, first_exp_id=1):
     return exp_name_list, args_list, exp_meta_list
 
 
-def get_arg_val_idxs(args, arg_key):
-    begin_idx = args.find('--' + arg_key) + 2
+def get_arg_val_idxs(args, arg_key, json=False):
+    if not json:
+        # args start with --
+        begin_idx = args.find('--' + arg_key) + 2
+    else:
+        begin_idx = args.find(arg_key)
     end_idx = args[begin_idx:].find(' ')
     if end_idx == -1:
         end_idx = len(args) - begin_idx
@@ -89,21 +95,28 @@ def append_args(args, extra_args, args_file):
     if isinstance(extra_args, str):
         extra_args = extra_args.replace('--', '').strip().split(' ')
     for extra_arg in extra_args:
-        if args_file.endswith('.json'):
-            args = args + ' ' + extra_arg
-            continue
+        # if args_file.endswith('.json'):
+        #     args = args + ' ' + extra_arg
+        #     continue
         arg_key = extra_arg[:extra_arg.find('=')+1]
-        if len(extra_arg) > len(arg_key):
+        if len(extra_arg) > len(arg_key) and len(arg_key) > 0:
             # if the arg is something like --lr=1e-4
-            if ('--' + arg_key) in args:
-                begin_idx, end_idx = get_arg_val_idxs(args, arg_key)
+            if arg_key in args:
+                begin_idx, end_idx = get_arg_val_idxs(args, arg_key, args_file.endswith('.json'))
                 args = args[:begin_idx] + extra_arg + args[end_idx:]
             else:
-                args += ' --' + extra_arg
+                if not args_file.endswith('.json'):
+                    args += ' --' + extra_arg
+                else:
+                    args += ' ' + extra_arg
         else:
             # if the arg is something like --pudb
-            if ('--' + extra_arg) not in args:
-                args += ' --' + extra_arg
+            if not args_file.endswith('.json'):
+                if ('--' + extra_arg) not in args:
+                    args += ' --' + extra_arg
+            else:
+                if extra_arg not in args:
+                    args += ' ' + extra_arg
     return args
 
 
@@ -111,7 +124,8 @@ def append_log_dir(args, exp_name, seed, args_file, script):
     logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
     if '.json' in args_file:
         scripts2logdir = {'bc.dataset.collect_demos': 'eval.dir',
-                          'bc.net.train': 'model.dir'}
+                          'bc.net.train': 'model.dir',
+                          'sim2real.auto.train': 'autoaug.save_dir'}
         assert script in scripts2logdir, 'Script {} does not support json input'.format(script)
         if scripts2logdir[script] not in args:
             args += ' {}={}'.format(scripts2logdir[script], logdir)

@@ -23,6 +23,8 @@ def job_local(exp_name, args, script, args_file, seed=None, render=False):
         rendering_on = ' eval.render=True' if '.json' in args_file else ' --render'
         script += rendering_on
     print('Running:\n' + script)
+    if not render:
+        del os.environ['DISPLAY']
     os.system(script)
 
 

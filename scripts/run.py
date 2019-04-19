@@ -14,10 +14,14 @@ def cache_code(exp_name_list, config, mode):
         return
     if len(exp_name_list) > 1:
         assert mode not in {'local', 'render'}
-    make_sym_link = mode in {'local', 'render'}
+    make_sym_link = mode in {'local', 'render'} and not config.cache_code
     # make_sym_link = True
     system.cache_code_dir(
-        exp_name_list[0], config.git_commit_agents, config.git_commit_grasp_env, make_sym_link)
+        exp_name_list[0],
+        config.git_commit_ppo,
+        config.git_commit_bc,
+        config.git_commit_mime,
+        make_sym_link)
     # cache only the first exp directory, others are sym links to it
     for exp_name in exp_name_list[1:]:
         system.cache_code_dir(exp_name, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
@@ -55,17 +59,22 @@ def parse_config():
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
                         'It should be a dictionary with key equal to the argument you want to ' \
                         'gridsearch on and value equal to list of values you want it to be.')
-    parser.add_argument('-gca', '--git_commit_agents', type=str, default=None,
-                        help='Git commit to checkout the agents repo to')
-    parser.add_argument('-gcg', '--git_commit_grasp_env', type=str, default=None,
-                        help='Git commit to checkout the grasp_env repo to')
+    parser.add_argument('-gcp', '--git_commit_ppo', type=str, default=None,
+                        help='Git commit to checkout the ppo repo to')
+    parser.add_argument('-gcb', '--git_commit_bc', type=str, default=None,
+                        help='Git commit to checkout the bc repo to')
+    parser.add_argument('-gcm', '--git_commit_mime', type=str, default=None,
+                        help='Git commit to checkout the mime repo to')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
     parser.add_argument('-sc', '--script', default='ppo.scripts.train',
                         help='The python script to run with run_with_pytorch.sh.')
+    # TODO: fix, it's redundant
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
                         help='If the code caching should be disabled')
+    parser.add_argument('-cc', '--cache_code', default=False, action='store_true',
+                        help='If the code caching should be enabled in local mode')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
     # Google Cloud Engine settings

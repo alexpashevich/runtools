@@ -24,7 +24,8 @@ def print_ckpt(path):
 def get_shared_machines_p_option(mode, machines):
     # return ' host=\'\"\'\"\'gpuhost10\'\"\'\"\''
     if mode != 'access1-cp':
-        return ''
+        return 'not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\''
+        # return ''
     # old machines can not run tensorflow >1.5
     nodes = {'s': list(range(1, 15)) + [36],
              'f': list(range(21, 36)) + list(range(37, 35)) + list(range(51, 55))}
