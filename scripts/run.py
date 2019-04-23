@@ -7,6 +7,7 @@ from scripts.utils import launch, system, parse, misc
 
 TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
 
+
 def cache_code(exp_name_list, config, mode):
     for exp_name in exp_name_list:
         system.create_parent_log_dir(exp_name)
@@ -24,13 +25,21 @@ def cache_code(exp_name_list, config, mode):
         make_sym_link)
     # cache only the first exp directory, others are sym links to it
     for exp_name in exp_name_list[1:]:
-        system.cache_code_dir(exp_name, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+        system.cache_code_dir(exp_name, None, None, None,
+                              sym_link=True,
+                              sym_link_to_exp=exp_name_list[0])
 
 
 def send_report_message(exp_name, exp_meta, seeds, mode):
-    report_message = 'launched job {0} (seeds %s) on %s\ndetails = {1}'.format(exp_name, exp_meta)
+    report_message = 'launched job `{0}` (seeds %s) on %s\n```details = {1}```'.format(
+        exp_name, exp_meta)
     report_message = report_message % (seeds, mode)
-    telegram_send.send([report_message])
+    try:
+        telegram_send.send([report_message])
+    except:
+        # probably I am running a local job from a cluster node
+        pass
+
 
 def parse_config():
     parser = argparse.ArgumentParser()
@@ -102,6 +111,7 @@ def main():
             # run locally
             assert len(exp_name_list) == 1
             render = (mode == 'render')
+            send_report_message(exp_name, exp_meta, [config.seed], mode)
             launch.job_local(
                 exp_name, args, script, config.files[0], seed=config.seed, render=render)
         elif mode != 'gce':

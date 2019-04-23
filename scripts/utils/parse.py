@@ -71,7 +71,9 @@ def get_exp_lists(config, first_exp_id=1):
             exp_meta_list.append(
                 {'args_file': args_file,
                  'extra_args': append_args(gridargs, config.extra_args, ''),
-                 'script': script})
+                 'script': script,
+                 'args': args,
+                 'full_command': 'python3 -m {} {}'.format(script, args)})
     return exp_name_list, args_list, exp_meta_list
 
 
