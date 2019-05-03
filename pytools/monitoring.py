@@ -35,6 +35,7 @@ def tail(f, n):
     return lines[-n:]
 
 def cut_value(string, keyword):
+    raise NotImplementedError
     try:
         begin = string.find(keyword)
         end = string[begin:].find('\n')
@@ -113,9 +114,10 @@ def getMachineSummary(machine, keywords):
                 job_list.append(cut_value(oarout_string, keyword))
                 # TODO: fix cutting when a job has just started
         except:
-            job_list.append('N/A')
+            status = 'W' if 'W {}'.format(LOGIN) in job else 'n/a'
+            job_list.append(status)
             for keyword in KEYWORDS:
-                job_list.append('N/A')
+                job_list.append(status)
 
         machine_summary.append(job_list)
     return machine_summary

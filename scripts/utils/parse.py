@@ -57,12 +57,19 @@ def read_json(args_lines):
 
 def get_exp_lists(config, first_exp_id=1):
     gridargs_list = get_gridargs_list(config.grid)
+    if config.extra_args is not None:
+        assert len(config.extra_args) in (1, len(config.files))
+        extra_args_list = config.extra_args
+    else:
+        extra_args_list = [None]
+    if len(extra_args_list) == 1:
+        extra_args_list *= len(config.files)
     exp_name_list, args_list, exp_meta_list = [], [], []
-    for args_file in config.files:
+    for args_file, extra_args in zip(config.files, extra_args_list):
         for i, gridargs in enumerate(gridargs_list):
             args, exp_name, script = read_args(args_file)
             args = append_args(args, gridargs, args_file)
-            args = append_args(args, config.extra_args, args_file)
+            args = append_args(args, extra_args, args_file)
             if len(gridargs_list) > 1:
                 # TODO: check if this exp does not exist yet
                 exp_name += '_v' + str(i+first_exp_id)
@@ -70,7 +77,7 @@ def get_exp_lists(config, first_exp_id=1):
             args_list.append(args)
             exp_meta_list.append(
                 {'args_file': args_file,
-                 'extra_args': append_args(gridargs, config.extra_args, ''),
+                 'extra_args': append_args(gridargs, extra_args, ''),
                  'script': script,
                  'args': args,
                  'full_command': 'python3 -m {} {}'.format(script, args)})
@@ -125,7 +132,7 @@ def append_args(args, extra_args, args_file):
 def append_log_dir(args, exp_name, seed, args_file, script):
     logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
     if '.json' in args_file:
-        scripts2logdir = {'bc.dataset.collect_demos': 'eval.dir',
+        scripts2logdir = {'bc.dataset.collect_demos': 'collect.dir',
                           'bc.net.train': 'model.dir',
                           'sim2real.auto.train': 'autoaug.save_dir'}
         assert script in scripts2logdir, 'Script {} does not support json input'.format(script)

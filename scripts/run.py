@@ -25,9 +25,9 @@ def cache_code(exp_name_list, config, mode):
         make_sym_link)
     # cache only the first exp directory, others are sym links to it
     for exp_name in exp_name_list[1:]:
-        system.cache_code_dir(exp_name, None, None, None,
-                              sym_link=True,
-                              sym_link_to_exp=exp_name_list[0])
+        if exp_name != exp_name_list[0]:
+            system.cache_code_dir(
+                exp_name, None, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
 
 
 def send_report_message(exp_name, exp_meta, seeds, mode):
@@ -46,14 +46,12 @@ def parse_config():
     parser.add_argument('files', type=str, nargs='*',
                         help='List of files with argument to feed into the training script')
     # extra args provided in the normal format: "--num_agents=8" or "agents.num=8"
-    parser.add_argument('-e', '--extra_args', type=str, default=None,
+    parser.add_argument('-e', '--extra_args', type=str, default=None, nargs='+',
                         help='Additional arguments to be appended to the config args')
     parser.add_argument('-en', '--exp_names', default=None, nargs='+',
                         help='Exp name(s) in case if the filename is not good')
     parser.add_argument('-n', '--num_seeds', type=int, default=1,
                         help='Number of seeds to run training with')
-    parser.add_argument('-f', '--first_seed', type=int, default=1,
-                        help='First seed value')
     parser.add_argument('-s', '--seed', type=int, default=None,
                         help='Seed to use (in a local experiment).')
     parser.add_argument('-m', '--mode', type=str, default='local',
@@ -119,7 +117,7 @@ def main():
             p_options = misc.get_shared_machines_p_option(mode, config.machines)
             JobPPO = misc.get_job(
                 mode, p_options, config.besteffort, config.num_cores, config.wallclock)
-            all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
+            all_seeds = range(config.seed, config.seed + config.num_seeds)
             for seed in all_seeds:
                 launch.job_cluster(
                     exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds,
@@ -128,9 +126,9 @@ def main():
         else:
             # run on GCE
             raise NotImplementedError('need to implement the new scripts supporting')
-            all_seeds = range(config.first_seed, config.first_seed + config.num_seeds)
+            all_seeds = range(config.seed, config.seed + config.num_seeds)
             for seed in all_seeds:
-                exp_number = seed - config.first_seed + exp_id * config.num_seeds
+                exp_number = seed - config.seed + exp_id * config.num_seeds
                 exp_total = len(exp_name_list) * config.num_seeds
                 # If more than a single node to submit, change gce_id
                 gce_id = int(config.gce_id + exp_number // (exp_total / config.num_gce))

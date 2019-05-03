@@ -15,15 +15,15 @@ def job_local(exp_name, args, script, args_file, seed=None, render=False):
         seed = 0
     elif script != 'bc.net.train':
         # in bc trainin the seed arg is not used
-        argname = 'eval.seed' if '.json' in args_file else 'seed'
+        argname = 'collect.seed' if '.json' in args_file else 'seed'
         args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
     args = parse.append_log_dir(args, exp_name, seed, args_file, script)
     script = 'python3 -u -m {} {}'.format(script, args)
     if render:
-        rendering_on = ' eval.render=True' if '.json' in args_file else ' --render'
+        rendering_on = ' collect.render=True' if '.json' in args_file else ' --render'
         script += rendering_on
     print('Running:\n' + script)
-    if not render:
+    if not render and 'DISPLAY' in os.environ:
         del os.environ['DISPLAY']
     os.system(script)
 
@@ -35,7 +35,7 @@ def job_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class, ti
     if '--seed=' not in args:
         if script != 'bc.net.train':
             # in bc trainin the seed arg is not used
-            argname = 'eval.seed' if '.json' in args_file else 'seed'
+            argname = 'collect.seed' if '.json' in args_file else 'seed'
             args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
         exp_name += '-s%d' % seed
     else:
