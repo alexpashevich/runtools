@@ -171,10 +171,10 @@ class MenuDemo:
         for machine in machines:
             all_summaries[machine] = getMachineSummary(machine, keywords)
 
-        # TODO: refactor
-        if len(all_summaries[CPU_MACHINE]) > 0:
-            jobs_cpu = [all_summaries[CPU_MACHINE][0]] + sorted(all_summaries[CPU_MACHINE][1:])
-            all_summaries[CPU_MACHINE] = jobs_cpu
+        for machine in machines:
+            if len(all_summaries[machine]) > 0:
+                jobs_machine_sorted = [all_summaries[machine][0]] + sorted(all_summaries[machine][1:])
+                all_summaries[machine] = jobs_machine_sorted
 
         self.outputLines = ['Monitoring...']
         for machine, machine_summaries in all_summaries.items():

@@ -55,17 +55,21 @@ def read_json(args_lines):
     return args
 
 
-def get_exp_lists(config, first_exp_id=1):
+def get_exp_lists(config, first_exp_id, num_exps):
     gridargs_list = get_gridargs_list(config.grid)
     if config.extra_args is not None:
-        assert len(config.extra_args) in (1, len(config.files))
+        assert len(config.extra_args) in (1, num_exps)
         extra_args_list = config.extra_args
     else:
         extra_args_list = [None]
-    if len(extra_args_list) == 1:
-        extra_args_list *= len(config.files)
+    if len(extra_args_list) == 1 and num_exps > 1:
+        extra_args_list *= num_exps
+    exp_files = config.files
+    if len(exp_files) == 1 and num_exps > 1:
+        exp_files *= num_exps
+    assert len(exp_files) == len(extra_args_list)
     exp_name_list, args_list, exp_meta_list = [], [], []
-    for args_file, extra_args in zip(config.files, extra_args_list):
+    for args_file, extra_args in zip(exp_files, extra_args_list):
         for i, gridargs in enumerate(gridargs_list):
             args, exp_name, script = read_args(args_file)
             args = append_args(args, gridargs, args_file)
@@ -133,6 +137,7 @@ def append_log_dir(args, exp_name, seed, args_file, script):
     logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
     if '.json' in args_file:
         scripts2logdir = {'bc.dataset.collect_demos': 'collect.dir',
+                          'bc.dataset.collect_regression': 'collect.dir',
                           'bc.net.train': 'model.dir',
                           'sim2real.auto.train': 'autoaug.save_dir'}
         assert script in scripts2logdir, 'Script {} does not support json input'.format(script)

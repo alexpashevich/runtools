@@ -44,34 +44,34 @@ def send_report_message(exp_name, exp_meta, seeds, mode):
 def parse_config():
     parser = argparse.ArgumentParser()
     parser.add_argument('files', type=str, nargs='*',
-                        help='List of files with argument to feed into the training script')
+                        help='List of files with argument to feed into the training script.')
     # extra args provided in the normal format: "--num_agents=8" or "agents.num=8"
     parser.add_argument('-e', '--extra_args', type=str, default=None, nargs='+',
-                        help='Additional arguments to be appended to the config args')
+                        help='Additional arguments to be appended to the config args.')
     parser.add_argument('-en', '--exp_names', default=None, nargs='+',
-                        help='Exp name(s) in case if the filename is not good')
+                        help='Exp name(s) in case if the filename is not good.')
     parser.add_argument('-n', '--num_seeds', type=int, default=1,
-                        help='Number of seeds to run training with')
+                        help='Number of seeds to run training with.')
     parser.add_argument('-s', '--seed', type=int, default=None,
-                        help='Seed to use (in a local experiment).')
+                        help='Seed to use.')
     parser.add_argument('-m', '--mode', type=str, default='local',
                         help='One of $utils.misc.ALLOWED_MODES (or the first letter).')
     parser.add_argument('-b', '--besteffort', default=False, action='store_true',
                         help='Whether to run in besteffort mode')
     parser.add_argument('-nc', '--num_cores', type=int, default=8,
-                        help='Number of cores to be used on the cluster')
+                        help='Number of cores to be used on the cluster.')
     parser.add_argument('-w', '--wallclock', type=int, default=None,
-                        help='Job wallclock time to be set on the cluster')
+                        help='Job wallclock time to be set on the cluster.')
     parser.add_argument('-g', '--grid', type=json.loads, default=None,
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
                         'It should be a dictionary with key equal to the argument you want to ' \
                         'gridsearch on and value equal to list of values you want it to be.')
     parser.add_argument('-gcp', '--git_commit_ppo', type=str, default=None,
-                        help='Git commit to checkout the ppo repo to')
+                        help='Git commit to checkout the ppo repo to.')
     parser.add_argument('-gcb', '--git_commit_bc', type=str, default=None,
-                        help='Git commit to checkout the bc repo to')
+                        help='Git commit to checkout the bc repo to.')
     parser.add_argument('-gcm', '--git_commit_mime', type=str, default=None,
-                        help='Git commit to checkout the mime repo to')
+                        help='Git commit to checkout the mime repo to.')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
@@ -79,9 +79,9 @@ def parse_config():
                         help='The python script to run with run_with_pytorch.sh.')
     # TODO: fix, it's redundant
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
-                        help='If the code caching should be disabled')
+                        help='If the code caching should be disabled.')
     parser.add_argument('-cc', '--cache_code', default=False, action='store_true',
-                        help='If the code caching should be enabled in local mode')
+                        help='If the code caching should be enabled in local mode.')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
     # Google Cloud Engine settings
@@ -95,10 +95,20 @@ def parse_config():
 def main():
     config = parse_config()
     mode = misc.get_mode(config)
-    exp_name_list, args_list, exp_meta_list = parse.get_exp_lists(config, config.first_exp_id)
+    num_exps = max(len(config.files),
+                   1 if config.exp_names is None else len(config.exp_names),
+                   1 if config.extra_args is None else len(config.extra_args))
+    if config.grid:
+        num_exps *= len(config.grid)
+    exp_name_list, args_list, exp_meta_list = parse.get_exp_lists(config, config.first_exp_id, num_exps)
     if config.exp_names:
-        assert len(exp_name_list) == len(config.exp_names)
-        exp_name_list = config.exp_names
+        if len(config.exp_names) == len(exp_name_list):
+            exp_name_list = config.exp_names
+        elif len(config.exp_names) == 1:
+            exp_name_list = config.exp_names * num_exps
+        else:
+            raise RuntimeError('exp names size is neither 1, nor $NUM_EXPS: {}'.format(
+                config.exp_names))
 
     cache_code(exp_name_list, config, mode)
 
@@ -109,7 +119,8 @@ def main():
             # run locally
             assert len(exp_name_list) == 1
             render = (mode == 'render')
-            send_report_message(exp_name, exp_meta, [config.seed], mode)
+            # TODO: add an option to enforce message sending in the local mode
+            # send_report_message(exp_name, exp_meta, [config.seed], mode)
             launch.job_local(
                 exp_name, args, script, config.files[0], seed=config.seed, render=render)
         elif mode != 'gce':
@@ -117,7 +128,8 @@ def main():
             p_options = misc.get_shared_machines_p_option(mode, config.machines)
             JobPPO = misc.get_job(
                 mode, p_options, config.besteffort, config.num_cores, config.wallclock)
-            all_seeds = range(config.seed, config.seed + config.num_seeds)
+            first_seed = config.seed if config.seed is not None else 1
+            all_seeds = range(first_seed, first_seed + config.num_seeds)
             for seed in all_seeds:
                 launch.job_cluster(
                     exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds,
@@ -126,9 +138,10 @@ def main():
         else:
             # run on GCE
             raise NotImplementedError('need to implement the new scripts supporting')
-            all_seeds = range(config.seed, config.seed + config.num_seeds)
+            first_seed = config.seed if config.seed is not None else 1
+            all_seeds = range(first_seed, first_seed + config.num_seeds)
             for seed in all_seeds:
-                exp_number = seed - config.seed + exp_id * config.num_seeds
+                exp_number = seed - first_seed + exp_id * config.num_seeds
                 exp_total = len(exp_name_list) * config.num_seeds
                 # If more than a single node to submit, change gce_id
                 gce_id = int(config.gce_id + exp_number // (exp_total / config.num_gce))
