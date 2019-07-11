@@ -8,7 +8,8 @@ from pytools.tools import cmd
 
 from settings import CODE_DIRNAME
 
-USED_CODE_DIRS = 'mime', 'ppo', 'bc'
+# USED_CODE_DIRS = 'mime', 'ppo', 'bc'
+USED_CODE_DIRS = 'mime', 'l2m'
 
 
 def get_sys_path_clean():

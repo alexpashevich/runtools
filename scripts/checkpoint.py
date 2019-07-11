@@ -8,9 +8,9 @@ def get_train_args(seed_path, timestamp, device):
     # we can pass the cuda arg as well
     _, seed_dir = os.path.split(os.path.normpath(seed_path))
     seed = seed_dir.replace('seed', '')
-    train_args = '--logdir={} --timestamp={} --seed={}'.format(seed_path, timestamp, seed)
+    train_args = 'with log.logdir={} log.timestamp={} general.seed={}'.format(seed_path, timestamp, seed)
     if device:
-        train_args += ' --device={}'.format(device)
+        train_args += ' general.device={}'.format(device)
     return train_args
 
 def send_job(job, seed_path, timestamp, device, script):
@@ -36,7 +36,7 @@ def main():
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72,
                         help='Job wall clock time to be set on the cluster')
-    parser.add_argument('-sc', '--script', default='ppo.scripts.train',
+    parser.add_argument('-sc', '--script', default='ppo.train.run',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
@@ -56,7 +56,7 @@ def main():
         command = 'cd $HOME/Scripts; ./run_with_pytorch.sh {} {} {}'.format(
             exp_name, args.script, train_args)
         if mode == 'render':
-            command += ' --render'
+            command += ' general.render=True'
         os.system(command)
     else:
         p_options = misc.get_shared_machines_p_option(mode, args.machines)

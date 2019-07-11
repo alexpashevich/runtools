@@ -14,8 +14,8 @@ def job_local(exp_name, args, script, args_file, seed=None, render=False):
     if seed is None:
         seed = 0
     elif script != 'bc.net.train':
-        # in bc trainin the seed arg is not used
-        argname = 'collect.seed' if '.json' in args_file else 'seed'
+        # in bc training the seed arg is not used
+        argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
         args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
     args = parse.append_log_dir(args, exp_name, seed, args_file, script)
     script = 'python3 -u -m {} {}'.format(script, args)
@@ -34,16 +34,16 @@ def job_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class, ti
     # adding the seed to arguments and exp_name
     if '--seed=' not in args:
         if script != 'bc.net.train':
-            # in bc trainin the seed arg is not used
-            argname = 'collect.seed' if '.json' in args_file else 'seed'
+            # in bc training the seed arg is not used
+            argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
             args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
         exp_name += '-s%d' % seed
     else:
         if 'seed=' in args and nb_seeds > 1:
             raise ValueError(('gridsearch over seeds is launched while a seed is already' +
                               'specified in the argument file'))
-    if '--timestamp=' not in args and '.json' not in args_file:
-        args += ' --timestamp={}'.format(timestamp)
+    if 'log.timestamp=' not in args and script == 'ppo.train.run':
+        args += ' log.timestamp={}'.format(timestamp)
     # running the job
     manage([job_class([exp_name, script, args])], only_initialization=False, sleep_duration=1)
     print('...\n...\n...')

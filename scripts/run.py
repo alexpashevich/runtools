@@ -24,8 +24,8 @@ def cache_code(exp_name_list, config, mode):
         config.git_commit_mime,
         make_sym_link)
     # cache only the first exp directory, others are sym links to it
-    for exp_name in exp_name_list[1:]:
-        if exp_name != exp_name_list[0]:
+    for exp_id, exp_name in enumerate(exp_name_list[1:]):
+        if exp_name not in exp_name_list[:1 + exp_id]:
             system.cache_code_dir(
                 exp_name, None, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
 
@@ -75,7 +75,7 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('-sc', '--script', default='ppo.scripts.train',
+    parser.add_argument('-sc', '--script', default='ppo.train.run',
                         help='The python script to run with run_with_pytorch.sh.')
     # TODO: fix, it's redundant
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
@@ -89,6 +89,13 @@ def parse_config():
                         help='Google Compute Engine id in $GINSTS (starting from 1).')
     parser.add_argument('-ng', '--num_gce', type=int, default=1,
                         help='Number of GCE to distribute the experiments.')
+    # evaluation
+    parser.add_argument('-ei', '--evaluation_interval', type=json.loads, default=None,
+                        help='[first_epoch, last_epoch, iter_epoch]')
+    parser.add_argument('-es', '--evaluation_seeds', type=json.loads, default=None,
+                        help='List of seeds to evaluate.')
+    parser.add_argument('-ed', '--evaluation_dir', type=str, default=None,
+                        help='Path to the eval dirs with %d instead of the seed number')
     return parser.parse_args()
 
 
@@ -101,6 +108,7 @@ def main():
     if config.grid:
         num_exps *= len(config.grid)
     exp_name_list, args_list, exp_meta_list = parse.get_exp_lists(config, config.first_exp_id, num_exps)
+
     if config.exp_names:
         if len(config.exp_names) == len(exp_name_list):
             exp_name_list = config.exp_names
@@ -109,6 +117,14 @@ def main():
         else:
             raise RuntimeError('exp names size is neither 1, nor $NUM_EXPS: {}'.format(
                 config.exp_names))
+
+    if config.evaluation_seeds is not None:
+        assert config.evaluation_interval is not None
+        assert config.evaluation_dir is not None
+        assert len(config.evaluation_interval) == 3
+        exp_name_list, args_list, exp_meta_list = parse.expand_eval_exp_lists(
+            exp_name_list, args_list, exp_meta_list,
+            config.evaluation_interval, config.evaluation_seeds, config.evaluation_dir)
 
     cache_code(exp_name_list, config, mode)
 
@@ -121,6 +137,7 @@ def main():
             render = (mode == 'render')
             # TODO: add an option to enforce message sending in the local mode
             # send_report_message(exp_name, exp_meta, [config.seed], mode)
+            system.change_sys_path(system.get_sys_path_clean(), exp_name)
             launch.job_local(
                 exp_name, args, script, config.files[0], seed=config.seed, render=render)
         elif mode != 'gce':

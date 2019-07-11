@@ -1,6 +1,7 @@
 import os
 import json
 import collections
+from copy import deepcopy
 
 
 def read_args(args_file):
@@ -88,6 +89,29 @@ def get_exp_lists(config, first_exp_id, num_exps):
     return exp_name_list, args_list, exp_meta_list
 
 
+def expand_eval_exp_lists(exp_name_list, args_list, exp_meta_list, eval_interval, eval_seeds, eval_dir):
+    eval_first_epoch, eval_last_epoch, eval_iter = eval_interval
+    exp_name_list_new, args_list_new, exp_meta_list_new = [], [], []
+    for exp_name, args, exp_meta in zip(exp_name_list, args_list, exp_meta_list):
+        assert exp_meta['script'] == 'bc.dataset.collect_demos'
+        for eval_seed in eval_seeds:
+            exp_name_seed = '{}_seed{}'.format(exp_name, eval_seed)
+            args_seed = append_args(
+                args, ['model.dir={}'.format(eval_dir.strip() % eval_seed)], '.json')
+            for eval_epoch in range(eval_first_epoch, eval_last_epoch, eval_iter):
+                args_seed_epoch = append_args(
+                    args_seed, ['collect.first_epoch={}'.format(eval_epoch),
+                                'collect.last_epoch={}'.format(eval_epoch + eval_iter)],
+                    '.json')
+                exp_meta_seed_epoch = deepcopy(exp_meta)
+                exp_meta_seed_epoch['args'] = args_seed_epoch
+                exp_name_list_new.append(exp_name_seed)
+                args_list_new.append(args_seed_epoch)
+                exp_meta_list_new.append(exp_meta_seed_epoch)
+
+    return exp_name_list_new, args_list_new, exp_meta_list_new
+
+
 def get_arg_val_idxs(args, arg_key, json=False):
     if not json:
         # args start with --
@@ -139,7 +163,8 @@ def append_log_dir(args, exp_name, seed, args_file, script):
         scripts2logdir = {'bc.dataset.collect_demos': 'collect.dir',
                           'bc.dataset.collect_regression': 'collect.dir',
                           'bc.net.train': 'model.dir',
-                          'sim2real.auto.train': 'autoaug.save_dir'}
+                          'sim2real.auto.train': 'autoaug.save_dir',
+                          'ppo.train.run': 'log.logdir'}
         assert script in scripts2logdir, 'Script {} does not support json input'.format(script)
         if scripts2logdir[script] not in args:
             args += ' {}={}'.format(scripts2logdir[script], logdir)

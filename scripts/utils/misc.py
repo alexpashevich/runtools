@@ -24,7 +24,9 @@ def print_ckpt(path):
 def get_shared_machines_p_option(mode, machines):
     # return ' host=\'\"\'\"\'gpuhost10\'\"\'\"\''
     if mode != 'access1-cp':
-        return 'not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\''
+        # return 'not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\' and gpumem>11000'
+        return 'not host=\'\"\'\"\'gpuhost20\'\"\'\"\' and not host=\'\"\'\"\'gpuhost21\'\"\'\"\' and not host=\'\"\'\"\'gpuhost22\'\"\'\"\' and not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\' and gpumem>11000'
+        # return 'not gpumodel=\'\"\'\"\'titan_rtx\'\"\'\"\' and not gpumodel=\'\"\'\"\'rtx2080_ti\'\"\'\"\' and gpumem>11000'
         # return ''
     # old machines can not run tensorflow >1.5
     nodes = {'s': list(range(1, 15)) + [36],
