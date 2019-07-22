@@ -4,14 +4,17 @@ import argparse
 from scripts.utils import misc
 from job.job_manager import manage
 
-def get_train_args(seed_path, timestamp, device):
+
+def get_train_args(log_folder, timestamp, device):
     # we can pass the cuda arg as well
-    _, seed_dir = os.path.split(os.path.normpath(seed_path))
+    _, seed_dir = os.path.split(os.path.normpath(log_folder))
     seed = seed_dir.replace('seed', '')
-    train_args = 'with log.logdir={} log.timestamp={} general.seed={}'.format(seed_path, timestamp, seed)
+    train_args = 'with log.folder={} log.timestamp={} general.seed={}'.format(
+        log_folder, timestamp, seed)
     if device:
         train_args += ' general.device={}'.format(device)
     return train_args
+
 
 def send_job(job, seed_path, timestamp, device, script):
     ''' Send a job to the cluster '''
@@ -19,8 +22,10 @@ def send_job(job, seed_path, timestamp, device, script):
     exp_name = os.path.basename(exp_path)
     seed = seed_dir.replace('seed', '')
     exp_name_seed = '{}-s{}'.format(exp_name, seed)
-    train_args = get_train_args(seed_path, timestamp, device)
+    log_folder = os.path.join(exp_name, seed_dir)
+    train_args = get_train_args(log_folder, timestamp, device)
     manage([job([exp_name_seed, script, train_args])], only_initialization=False, sleep_duration=1)
+
 
 def main():
     parser = argparse.ArgumentParser()

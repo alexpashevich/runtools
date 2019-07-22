@@ -93,7 +93,7 @@ def expand_eval_exp_lists(exp_name_list, args_list, exp_meta_list, eval_interval
     eval_first_epoch, eval_last_epoch, eval_iter = eval_interval
     exp_name_list_new, args_list_new, exp_meta_list_new = [], [], []
     for exp_name, args, exp_meta in zip(exp_name_list, args_list, exp_meta_list):
-        assert exp_meta['script'] == 'bc.dataset.collect_demos'
+        assert exp_meta['script'] == 'bc.collect_demos'
         for eval_seed in eval_seeds:
             exp_name_seed = '{}_seed{}'.format(exp_name, eval_seed)
             args_seed = append_args(
@@ -158,18 +158,22 @@ def append_args(args, extra_args, args_file):
 
 
 def append_log_dir(args, exp_name, seed, args_file, script):
-    logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
     if '.json' in args_file:
-        scripts2logdir = {'bc.dataset.collect_demos': 'collect.dir',
-                          'bc.dataset.collect_regression': 'collect.dir',
-                          'bc.net.train': 'model.dir',
-                          'sim2real.auto.train': 'autoaug.save_dir',
-                          'ppo.train.run': 'log.logdir'}
+        scripts2logdir = {'bc.collect_demos': 'collect.folder',
+                          'bc.collect_images': 'collect.folder',
+                          'bc.train': 'model.name',
+                          'sim2real.train': 'sim2real.name',
+                          'ppo.train.run': 'log.folder'}
         assert script in scripts2logdir, 'Script {} does not support json input'.format(script)
         if scripts2logdir[script] not in args:
-            args += ' {}={}'.format(scripts2logdir[script], logdir)
+            if 'ppo' in script:
+                args += ' {}={}'.format(scripts2logdir[script],
+                                        os.path.join(exp_name, 'seed%d' % seed))
+            else:
+                args += ' {}={}'.format(scripts2logdir[script], exp_name)
     else:
         if '--logdir=' not in args:
+            logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
             args += ' --logdir=' + logdir
     return args
 
