@@ -13,7 +13,8 @@ def job_local(exp_name, args, script, args_file, seed=None, render=False):
     # log dir creation
     if seed is None:
         seed = 0
-    elif script != 'bc.train':
+    # elif script != 'bc.train':
+    elif script != 'rlons.scripts.train':
         # in bc training the seed arg is not used
         argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
         args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)
@@ -33,7 +34,8 @@ def job_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class, ti
     args = parse.append_log_dir(args, exp_name, seed, args_file, script)
     # adding the seed to arguments and exp_name
     if '.seed=' not in args:
-        if script != 'bc.train':
+        # if script != 'bc.train':
+        if script != 'rlons.scripts.train':
             # in bc training the seed arg is not used
             argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
             args = parse.append_args(args, ['{}={}'.format(argname, seed)], args_file)

@@ -19,8 +19,7 @@ def cache_code(exp_name_list, config, mode):
     # make_sym_link = True
     system.cache_code_dir(
         exp_name_list[0],
-        config.git_commit_ppo,
-        config.git_commit_bc,
+        config.git_commit_rlons,
         config.git_commit_mime,
         make_sym_link)
     # cache only the first exp directory, others are sym links to it
@@ -66,10 +65,8 @@ def parse_config():
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
                         'It should be a dictionary with key equal to the argument you want to ' \
                         'gridsearch on and value equal to list of values you want it to be.')
-    parser.add_argument('-gcp', '--git_commit_ppo', type=str, default=None,
-                        help='Git commit to checkout the ppo repo to.')
-    parser.add_argument('-gcb', '--git_commit_bc', type=str, default=None,
-                        help='Git commit to checkout the bc repo to.')
+    parser.add_argument('-gcr', '--git_commit_rlons', type=str, default=None,
+                        help='Git commit to checkout the RLonS repo to.')
     parser.add_argument('-gcm', '--git_commit_mime', type=str, default=None,
                         help='Git commit to checkout the mime repo to.')
     parser.add_argument('--machines', type=str, default='f',
