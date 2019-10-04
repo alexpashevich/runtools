@@ -4,19 +4,15 @@ import shutil
 
 from git import Git
 from copy import copy
-from pytools.tools import cmd
 
-from settings import CODE_DIRNAME
-
-# USED_CODE_DIRS = 'mime', 'ppo', 'bc'
-# USED_CODE_DIRS = 'mime', 'l2m'
-USED_CODE_DIRS = 'mime', 'rlons'
+from runtools.utils.python import cmd
+from runtools.settings import CODEDIR_PATH, CACHEDIR_PATH, LOGDIR_PATH, USED_CODE_DIRS
 
 
 def get_sys_path_clean():
     sys_path_clean = []
     for path in sys.path:
-        if CODE_DIRNAME not in path and CODE_DIRNAME.replace('thoth/', '') not in path:
+        if CODEDIR_PATH not in path and CODEDIR_PATH.replace('thoth/', '') not in path:
             sys_path_clean.append(path)
     return sys_path_clean
 
@@ -24,7 +20,7 @@ def get_sys_path_clean():
 def change_sys_path(sys_path_clean, logdir):
     sys.path = copy(sys_path_clean)
     exp_name = os.path.basename(os.path.normpath(logdir))
-    cachedir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
+    cachedir = os.path.join(CACHEDIR_PATH, exp_name)
     for code_dir in USED_CODE_DIRS:
         sys.path.append(os.path.join(cachedir, code_dir))
 
@@ -38,7 +34,7 @@ def checkout_repo(repo, commit_tag):
 def cache_code_dir(
         exp_name, commit_rlons, commit_mime,
         sym_link=False, sym_link_to_exp=None):
-    cache_dir = os.path.join("/scratch/gpuhost7/apashevi/Cache/Code/", exp_name)
+    cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
             shutil.rmtree(cache_dir)
@@ -47,12 +43,12 @@ def cache_code_dir(
     if not sym_link:
         os.makedirs(cache_dir)
         for code_dir in USED_CODE_DIRS:
-            cmd('cp -R /home/thoth/apashevi/Code/{} {}/'.format(code_dir, cache_dir))
+            cmd('cp -R {} {}/'.format(os.path.join(CODEDIR_PATH, code_dir), cache_dir))
     else:
         if not sym_link_to_exp:
-            sym_link_to = '/home/thoth/apashevi/Code'
+            sym_link_to = CODEDIR_PATH
         else:
-            sym_link_to = os.path.join('/scratch/gpuhost7/apashevi/Cache/Code/', sym_link_to_exp)
+            sym_link_to = os.path.join(CACHEDIR_PATH, sym_link_to_exp)
         os.symlink(sym_link_to, cache_dir)
     if commit_rlons is not None:
         checkout_repo(os.path.join(cache_dir, 'rlons'), commit_rlons)
@@ -61,7 +57,7 @@ def cache_code_dir(
 
 
 def create_parent_log_dir(exp_name):
-    print('exp_name is {}'.format(exp_name))
-    log_dir = os.path.join("/scratch/gpuhost7/apashevi/Logs/agents", exp_name)
+    log_dir = os.path.join(LOGDIR_PATH, exp_name)
+    print('Logs will be saved to {}'.format(log_dir))
     if not os.path.exists(log_dir):
         os.makedirs(log_dir)

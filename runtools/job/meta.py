@@ -1,7 +1,8 @@
-import os, sys
+import os
+
 from random import randint
-from pytools.tools import cmd
-from settings import EMAIL, SCRIPT_DIRNAME, OARSUB_DIRNAME
+from runtools.utils.python import cmd
+from runtools.settings import OAR_SCRIPT_PATH, OAR_LOG_PATH
 
 
 class JobMeta(object):
@@ -126,12 +127,12 @@ class JobMeta(object):
     @property
     def oarsub_dirname(self):
         assert self.job_name is not None
-        return os.path.join(OARSUB_DIRNAME, self.job_name)
+        return os.path.join(OAR_LOG_PATH, self.job_name)
 
     @property
     def script_dirname(self):
         assert self.job_name is not None
-        return os.path.join(SCRIPT_DIRNAME, self.job_name)
+        return os.path.join(OAR_SCRIPT_PATH, self.job_name)
 
     @property
     def get_script_filename(self):
@@ -208,10 +209,6 @@ class JobMeta(object):
         if os.path.exists(self.script_filename):
             # delete the bash script
             cmd('rm ' + self.script_filename)
-            # send a report of the crash by mail
-            command_mail = 'cat ' + os.path.join(self.oarsub_dirname, self.job_id + '_stderr.txt')
-            command_mail += ' | mail -s "Failure report of ' + self.job_name + '" ' + EMAIL
-            cmd(command_mail)
             # declare job as crashed to avoid running following jobs
             self.job_crashed = True
         else:

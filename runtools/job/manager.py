@@ -1,6 +1,5 @@
-from job.job_meta import JobMeta
-from pytools.tools import cmd
-from settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
+from runtools.utils.python import cmd
+from runtools.settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
 
 """ Class of functions that take a list of JobMeta as input """
 

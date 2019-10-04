@@ -1,11 +1,8 @@
 import argparse
-import datetime
 import json
 import telegram_send
 
-from scripts.utils import launch, system, parse, misc
-
-TIMESTAMP = datetime.datetime.now().strftime('%Y%m%dT%H%M%S')
+from runtools.utils import jobs, system, get
 
 
 def cache_code(exp_name_list, config, mode):
@@ -16,7 +13,6 @@ def cache_code(exp_name_list, config, mode):
     if len(exp_name_list) > 1:
         assert mode not in {'local', 'render'}
     make_sym_link = mode in {'local', 'render'} and not config.cache_code
-    # make_sym_link = True
     system.cache_code_dir(
         exp_name_list[0],
         config.git_commit_rlons,
@@ -54,7 +50,7 @@ def parse_config():
     parser.add_argument('-s', '--seed', type=int, default=None,
                         help='Seed to use.')
     parser.add_argument('-m', '--mode', type=str, default='local',
-                        help='One of $utils.misc.ALLOWED_MODES (or the first letter).')
+                        help='One of $settings.ALLOWED_MODES (or the first letter).')
     parser.add_argument('-b', '--besteffort', default=False, action='store_true',
                         help='Whether to run in besteffort mode')
     parser.add_argument('-nc', '--num_cores', type=int, default=8,
@@ -81,12 +77,7 @@ def parse_config():
                         help='If the code caching should be enabled in local mode.')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
-    # Google Cloud Engine settings
-    parser.add_argument('-i', '--gce_id', type=int, default=None,
-                        help='Google Compute Engine id in $GINSTS (starting from 1).')
-    parser.add_argument('-ng', '--num_gce', type=int, default=1,
-                        help='Number of GCE to distribute the experiments.')
-    # evaluation
+    # evaluation (deprecated)
     parser.add_argument('-ei', '--evaluation_interval', type=json.loads, default=None,
                         help='[first_epoch, last_epoch, iter_epoch]')
     parser.add_argument('-es', '--evaluation_seeds', type=json.loads, default=None,
@@ -98,13 +89,13 @@ def parse_config():
 
 def main():
     config = parse_config()
-    mode = misc.get_mode(config)
+    mode = get.mode(config)
     num_exps = max(len(config.files),
                    1 if config.exp_names is None else len(config.exp_names),
                    1 if config.extra_args is None else len(config.extra_args))
     if config.grid:
         num_exps *= len(config.grid)
-    exp_name_list, args_list, exp_meta_list = parse.get_exp_lists(config, config.first_exp_id, num_exps)
+    exp_name_list, args_list, exp_meta_list = get.exp_lists(config, config.first_exp_id, num_exps)
 
     if config.exp_names:
         if len(config.exp_names) == len(exp_name_list):
@@ -119,7 +110,7 @@ def main():
         assert config.evaluation_interval is not None
         assert config.evaluation_dir is not None
         assert len(config.evaluation_interval) == 3
-        exp_name_list, args_list, exp_meta_list = parse.expand_eval_exp_lists(
+        exp_name_list, args_list, exp_meta_list = get.eval_exp_lists(
             exp_name_list, args_list, exp_meta_list,
             config.evaluation_interval, config.evaluation_seeds, config.evaluation_dir)
 
@@ -135,32 +126,19 @@ def main():
             # TODO: add an option to enforce message sending in the local mode
             # send_report_message(exp_name, exp_meta, [config.seed], mode)
             system.change_sys_path(system.get_sys_path_clean(), exp_name)
-            launch.job_local(
+            jobs.run_local(
                 exp_name, args, script, config.files[0], seed=config.seed, render=render)
-        elif mode != 'gce':
+        else:
             # run on INRIA cluster
-            p_options = misc.get_shared_machines_p_option(mode, config.machines)
-            JobCluster = misc.get_job(
+            p_options = get.p_option(mode, config.machines)
+            JobCluster = get.job(
                 mode, p_options, config.besteffort, config.num_cores, config.wallclock)
             first_seed = config.seed if config.seed is not None else 1
             all_seeds = range(first_seed, first_seed + config.num_seeds)
             for seed in all_seeds:
-                launch.job_cluster(
-                    exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds,
-                    JobCluster, TIMESTAMP)
+                jobs.run_cluster(
+                    exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds, JobCluster)
             send_report_message(exp_name, exp_meta, list(all_seeds), mode)
-        else:
-            # run on GCE
-            raise NotImplementedError('need to implement the new scripts supporting')
-            first_seed = config.seed if config.seed is not None else 1
-            all_seeds = range(first_seed, first_seed + config.num_seeds)
-            for seed in all_seeds:
-                exp_number = seed - first_seed + exp_id * config.num_seeds
-                exp_total = len(exp_name_list) * config.num_seeds
-                # If more than a single node to submit, change gce_id
-                gce_id = int(config.gce_id + exp_number // (exp_total / config.num_gce))
-                launch.job_gce(exp_name, args, seed, config.num_seeds, TIMESTAMP, gce_id)
-                send_report_message(exp_name, exp_meta, [seed], mode + '-' + str(gce_id))
 
 
 if __name__ == '__main__':

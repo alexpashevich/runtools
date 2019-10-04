@@ -1,24 +1,16 @@
 #!/usr/bin/env python
 
-"""
-Lyle Scott, III
-lyle@digitalfoo.net
-
-A simple demo that uses curses to scroll the terminal.
-"""
 import curses
 import os
-import sys
-import random
 import time
 
 import subprocess as sp
 
-from pytools.tools import cmd
-from settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OARSUB_DIRNAME
+from runtools.utils.python import cmd
+from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH
 
-KEYWORDS = []
 MAX_LENGTH = 80
+
 
 def tail(f, n):
     assert n >= 0
@@ -34,39 +26,13 @@ def tail(f, n):
         pos *= 2
     return lines[-n:]
 
-def cut_value(string, keyword):
-    raise NotImplementedError
-    try:
-        begin = string.find(keyword)
-        end = string[begin:].find('\n')
-        string_temp = string[begin: begin + end]
-        last_space = string_temp.rfind(' ')
-        value = string_temp[last_space + 1:]
-        if value.find('.') > 0 and value.find('.') + NB_DECIMAL < len(value):
-            value = value[:value.find('.') + NB_DECIMAL]
-        if len(value) > 15:
-            return 'n/a'
-        return value
-    except:
-        return 'n/a'
 
 def cut_step(string):
     try:
-        # version for TF agents
-        # substring = 'global step '
-        # begin = string.rfind(substring)
-        # string_temp = string[begin + len(substring):]
-        # end = string_temp.find(')')
-
-        # version for ppo
-        # substring = 'Training after '
-        # begin = string.rfind(substring)
-        # string_temp = string[begin + len(substring):]
-        # end = string_temp.find(' steps')
-
         # version for BC
         substrings = [('Epoch ', '\n'),
-                      ('Training after ', ' steps')]
+                      ('Training after ', ' steps'),
+                      ('Writing trajectory ', '\n')]
         for begin_string, end_string in substrings:
             if begin_string in string and end_string in string:
                 begin = string.rfind(begin_string)
@@ -75,13 +41,14 @@ def cut_step(string):
         step = string_temp[:end].strip()
         if len(step) > 15:
             return 'n/a'
-        if len(step) > 3:
-            step = step[:-3] + 'K'
-            if len (step) > 4:
-                step = step[:-4] + '.' + step[-4:]
+        # if len(step) > 3:
+        #     step = step[:-3] + 'K'
+        #     if len (step) > 4:
+        #         step = step[:-4] + '.' + step[-4:]
         return step
     except:
         return 'n/a'
+
 
 def getMachineSummary(machine, keywords):
     try:
@@ -103,26 +70,20 @@ def getMachineSummary(machine, keywords):
                 job_name = job_name.split(',')[0]
         duration = (job.split(' R=')[0]).split(' ')[-1]
         job_list = [job_name, job_id, duration]
-        oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stdout.txt')
-        # version for TF agents
-        # oarout = os.path.join(OARSUB_DIRNAME, job_name, job_id + '_stderr.txt')
+        oarout = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stdout.txt')
         try:
             oarout_list = tail(open(oarout, 'r'), 300)
             oarout_string = ' '.join(oarout_list)
             job_list.append(cut_step(oarout_string))
-            for keyword in KEYWORDS:
-                job_list.append(cut_value(oarout_string, keyword))
-                # TODO: fix cutting when a job has just started
         except:
             status = 'W' if 'W {}'.format(LOGIN) in job else 'n/a'
             job_list.append(status)
-            for keyword in KEYWORDS:
-                job_list.append(status)
 
         machine_summary.append(job_list)
     return machine_summary
 
-class MenuDemo:
+
+class Monitor:
     DOWN = 1
     UP = -1
     ESC_KEY = 27
@@ -167,7 +128,7 @@ class MenuDemo:
 
         machines = [GPU_MACHINE, CPU_MACHINE]
         all_summaries = {machine: [] for machine in machines}
-        keywords = ['job_name', 'job_id', 'time', 'itr'] + KEYWORDS
+        keywords = ['job_name', 'job_id', 'time', 'itr']
         for machine in machines:
             all_summaries[machine] = getMachineSummary(machine, keywords)
 
@@ -227,18 +188,17 @@ class MenuDemo:
         newTopLineNum = min(self.nOutputLines - 1, newTopLineNum)
         if newTopLineNum % curses.LINES == 0:
             self.topLineNum = newTopLineNum
- 
+
     def restoreScreen(self):
         curses.initscr()
         curses.nocbreak()
         curses.echo()
         curses.endwin()
-    
+
     # catch any weird termination situations
     def __del__(self):
         self.restoreScreen()
 
-     
+
 if __name__ == '__main__':
-    ih = MenuDemo()
-    
+    monitor = Monitor()

@@ -1,5 +1,5 @@
 *.pyc
-settings.py
-args
-trpo_args
-*.idea
+__pycache__/*
+*/__pycache__/*
+*/*/__pycache__/*
+*/*/*/__pycache__/*
