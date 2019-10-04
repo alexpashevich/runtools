@@ -72,7 +72,7 @@ def parse_config():
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
                         'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
-    parser.add_argument('-sc', '--script', default='ppo.train.run',
+    parser.add_argument('-sc', '--script', default='rlons.scripts.train',
                         help='The python script to run with run_with_pytorch.sh.')
     # TODO: fix, it's redundant
     parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
@@ -140,14 +140,14 @@ def main():
         elif mode != 'gce':
             # run on INRIA cluster
             p_options = misc.get_shared_machines_p_option(mode, config.machines)
-            JobPPO = misc.get_job(
+            JobCluster = misc.get_job(
                 mode, p_options, config.besteffort, config.num_cores, config.wallclock)
             first_seed = config.seed if config.seed is not None else 1
             all_seeds = range(first_seed, first_seed + config.num_seeds)
             for seed in all_seeds:
                 launch.job_cluster(
                     exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds,
-                    JobPPO, TIMESTAMP)
+                    JobCluster, TIMESTAMP)
             send_report_message(exp_name, exp_meta, list(all_seeds), mode)
         else:
             # run on GCE

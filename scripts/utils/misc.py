@@ -3,7 +3,7 @@ import os
 from job.job_machine import JobGPU, JobSharedCPU
 from settings import HOME
 
-ALLOWED_MODES = ('local', 'render', 'access1-cp', 'edgar', 'gce')
+ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar', 'gce')
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
 
 
@@ -23,7 +23,7 @@ def print_ckpt(path):
 
 def get_shared_machines_p_option(mode, machines):
     # return ' host=\'\"\'\"\'gpuhost10\'\"\'\"\''
-    if mode != 'access1-cp':
+    if mode != 'access2-cp':
         # return 'not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\' and gpumem>11000'
         return 'not host=\'\"\'\"\'gpuhost20\'\"\'\"\' and not host=\'\"\'\"\'gpuhost21\'\"\'\"\' and not host=\'\"\'\"\'gpuhost22\'\"\'\"\' and not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\' and gpumem>11000'
         # return 'not gpumodel=\'\"\'\"\'titan_rtx\'\"\'\"\' and not gpumodel=\'\"\'\"\'rtx2080_ti\'\"\'\"\' and gpumem>11000'
@@ -58,14 +58,14 @@ def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
         parent_job = JobGPU
         time = '{}:0:0'.format(wallclock) if isinstance(wallclock, int) else wallclock
         l_options = ['walltime={}:0:0'.format(time)]
-    elif cluster == 'access1-cp':
+    elif cluster == 'access2-cp':
         parent_job = JobSharedCPU
         time = '{}:0:0'.format(wallclock) if isinstance(wallclock, int) else wallclock
         l_options = ['nodes=1/core={},walltime={}'.format(nb_cores, time)]
     else:
         raise ValueError('unknown cluster = {}'.format(cluster))
 
-    class JobPPO(parent_job):
+    class JobCluster(parent_job):
         def __init__(self, run_argv, p_options):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
@@ -77,7 +77,7 @@ def get_job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
         @property
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
-    return lambda run_argv: JobPPO(run_argv, p_options)
+    return lambda run_argv: JobCluster(run_argv, p_options)
 
 
 def get_gce_instance_ip(gce_id):

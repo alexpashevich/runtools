@@ -41,7 +41,7 @@ def main():
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72,
                         help='Job wall clock time to be set on the cluster')
-    parser.add_argument('-sc', '--script', default='ppo.train.run',
+    parser.add_argument('-sc', '--script', default='rlons.scripts.train',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \

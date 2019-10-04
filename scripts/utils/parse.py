@@ -158,27 +158,22 @@ def append_args(args, extra_args, args_file):
 
 
 def append_log_dir(args, exp_name, seed, args_file, script):
-    if '.json' in args_file:
-        scripts2logdir = {
-            'rlons.scripts.collect_demos': 'collect.folder',
-            'rlons.scripts.collect_images': 'collect.folder',
-            'rlons.scripts.train': 'model.name',
-            'sim2real.train': 'sim2real.name',
-            'ppo.train.run': 'log.folder'}
-        assert script in scripts2logdir, 'Script {} does not support json input'.format(script)
-        if 'ppo' in script:
-            if scripts2logdir[script] not in args:
-                args += ' {}={}'.format(scripts2logdir[script], exp_name)
-            else:
-                log_folder = args.split(scripts2logdir[script] + '=')[1].split(' ')[0]
-                args += ' {}={}'.format(scripts2logdir[script], log_folder)
+    assert '.json' in args_file
+    scripts2logdir = {
+        'rlons.scripts.collect_demos': 'collect.folder',
+        'rlons.scripts.collect_images': 'collect.folder',
+        'rlons.scripts.train': 'model.name',
+        'sim2real.train': 'sim2real.name'}
+    assert script in scripts2logdir, 'Script {} is not supported'.format(script)
+    if 'ppo' in script:
+        if scripts2logdir[script] not in args:
+            args += ' {}={}'.format(scripts2logdir[script], exp_name)
         else:
-            if scripts2logdir[script] not in args:
-                args += ' {}={}'.format(scripts2logdir[script], exp_name)
+            log_folder = args.split(scripts2logdir[script] + '=')[1].split(' ')[0]
+            args += ' {}={}'.format(scripts2logdir[script], log_folder)
     else:
-        if '--logdir=' not in args:
-            logdir = os.path.join("/home/apashevi/Logs/agents", exp_name, 'seed%d' % seed)
-            args += ' --logdir=' + logdir
+        if scripts2logdir[script] not in args:
+            args += ' {}={}'.format(scripts2logdir[script], exp_name)
     return args
 
 
