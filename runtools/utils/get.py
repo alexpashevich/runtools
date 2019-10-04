@@ -9,8 +9,8 @@ from runtools.utils.config import read_args, append_args
 def p_option(mode, machines):
     if mode == 'edgar':
         # TODO: check
-        # return 'not host=\'\"\'\"\'gpuhost20\'\"\'\"\' and not host=\'\"\'\"\'gpuhost21\'\"\'\"\' and not host=\'\"\'\"\'gpuhost22\'\"\'\"\' and not host=\'\"\'\"\'gpuhost23\'\"\'\"\' and not host=\'\"\'\"\'gpuhost24\'\"\'\"\' and not host=\'\"\'\"\'gpuhost25\'\"\'\"\' and not host=\'\"\'\"\'gpuhost26\'\"\'\"\' and not host=\'\"\'\"\'gpuhost27\'\"\'\"\' and gpumem>11000'
-        return ''
+        hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 22'
+        return hosts
     # old machines can not run tensorflow >1.5 and slow
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
@@ -29,6 +29,22 @@ def mode(config):
     else:
         raise ValueError('mode {} is not allowed, available modes: {}'.format(config.mode, ALLOWED_MODES))
     return mode
+
+
+def cache_mode(config, mode):
+    # all modes:
+    # cache_mode == keep -> check if cache_code dir exists. if yes, do nothing. if not, create logdir.
+    # local:
+    # default cache_mode is symlink: remove the cache_code dir and create a symlink
+    # cluster:
+    # default cache_mode is copy: remove the cache_code dir and copy the current code dir there
+    if config.cache_mode is not None:
+        return config.cache_mode
+    if mode in ('local', 'render'):
+        cache_mode = 'symlink'
+    elif mode in ('access2-cp', 'edgar'):
+        cache_mode = 'copy'
+    return cache_mode
 
 
 def job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):

@@ -5,26 +5,6 @@ import telegram_send
 from runtools.utils import jobs, system, get
 
 
-def cache_code(exp_name_list, config, mode):
-    for exp_name in exp_name_list:
-        system.create_parent_log_dir(exp_name)
-    if config.do_not_cache_code:
-        return
-    if len(exp_name_list) > 1:
-        assert mode not in {'local', 'render'}
-    make_sym_link = mode in {'local', 'render'} and not config.cache_code
-    system.cache_code_dir(
-        exp_name_list[0],
-        config.git_commit_rlons,
-        config.git_commit_mime,
-        make_sym_link)
-    # cache only the first exp directory, others are sym links to it
-    for exp_id, exp_name in enumerate(exp_name_list[1:]):
-        if exp_name not in exp_name_list[:1 + exp_id]:
-            system.cache_code_dir(
-                exp_name, None, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
-
-
 def send_report_message(exp_name, exp_meta, seeds, mode):
     report_message = 'launched job `{0}` (seeds %s) on %s\n```details = {1}```'.format(
         exp_name, exp_meta)
@@ -67,14 +47,11 @@ def parse_config():
                         help='Git commit to checkout the mime repo to.')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \
-                        'the choice should be in {\'s\', \'f\', \'muj\'} (slow, fast or mujuco (41)).')
+                        'the choice should be in {"s", "f"} (slow or fast).')
     parser.add_argument('-sc', '--script', default='rlons.scripts.train',
                         help='The python script to run with run_with_pytorch.sh.')
-    # TODO: fix, it's redundant
-    parser.add_argument('-dcc', '--do_not_cache_code', default=False, action='store_true',
-                        help='If the code caching should be disabled.')
-    parser.add_argument('-cc', '--cache_code', default=False, action='store_true',
-                        help='If the code caching should be enabled in local mode.')
+    parser.add_argument('-cm', '--cache_mode', default=None,
+                        help='Cache mode, should be in {"keep", "symlink", "copy"}')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
     # evaluation (deprecated)
@@ -114,7 +91,10 @@ def main():
             exp_name_list, args_list, exp_meta_list,
             config.evaluation_interval, config.evaluation_seeds, config.evaluation_dir)
 
-    cache_code(exp_name_list, config, mode)
+    if len(exp_name_list) > 1:
+        assert mode not in {'local', 'render'}
+    system.create_cache_dir(
+        exp_name_list, get.cache_mode(config, mode), config.git_commit_rlons, config.git_commit_mime)
 
     # run the experiment(s)
     for exp_id, (exp_name, args, exp_meta) in enumerate(zip(exp_name_list, args_list, exp_meta_list)):

@@ -31,10 +31,33 @@ def checkout_repo(repo, commit_tag):
     print('checkouted {} to {}'.format(repo, commit_tag))
 
 
-def cache_code_dir(
-        exp_name, commit_rlons, commit_mime,
+def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mime):
+    for exp_name in exp_name_list:
+        create_parent_log_dir(exp_name)
+    cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
+    if cache_mode == 'keep':
+        if not os.path.exists(cache_dir):
+            copy_code_dir(exp_name_list[0], git_commit_rlons, git_commit_mime, make_sym_link=True)
+        return
+
+    copy_code_dir(
+        exp_name_list[0],
+        cache_dir,
+        git_commit_rlons,
+        git_commit_mime,
+        sym_link=(cache_mode == 'symlink'))
+
+    # cache only the first exp directory, others are sym links to it
+    for exp_id, exp_name in enumerate(exp_name_list[1:]):
+        if exp_name not in exp_name_list[:1 + exp_id]:
+            cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
+            copy_code_dir(
+                exp_name, cache_dir, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+
+
+def copy_code_dir(
+        exp_name, cache_dir, commit_rlons, commit_mime,
         sym_link=False, sym_link_to_exp=None):
-    cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
             shutil.rmtree(cache_dir)
