@@ -6,7 +6,7 @@ from git import Git
 from copy import copy
 
 from runtools.utils.python import cmd
-from runtools.settings import CODEDIR_PATH, CACHEDIR_PATH, LOGDIR_PATH, USED_CODE_DIRS
+from runtools.settings import CODEDIR_PATH, CACHEDIR_PATH, USED_CODE_DIRS
 
 
 def get_sys_path_clean():
@@ -32,16 +32,13 @@ def checkout_repo(repo, commit_tag):
 
 
 def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mime):
-    for exp_name in exp_name_list:
-        create_parent_log_dir(exp_name)
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
     if cache_mode == 'keep':
         if not os.path.exists(cache_dir):
-            copy_code_dir(exp_name_list[0], git_commit_rlons, git_commit_mime, make_sym_link=True)
+            copy_code_dir(cache_dir, git_commit_rlons, git_commit_mime, make_sym_link=True)
         return
 
     copy_code_dir(
-        exp_name_list[0],
         cache_dir,
         git_commit_rlons,
         git_commit_mime,
@@ -52,12 +49,13 @@ def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mim
         if exp_name not in exp_name_list[:1 + exp_id]:
             cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
             copy_code_dir(
-                exp_name, cache_dir, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+                cache_dir, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
 
 
 def copy_code_dir(
-        exp_name, cache_dir, commit_rlons, commit_mime,
+        cache_dir, commit_rlons, commit_mime,
         sym_link=False, sym_link_to_exp=None):
+    print('{} code to {}...'.format('Symlinking' if sym_link else 'Copying', cache_dir))
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
             shutil.rmtree(cache_dir)
@@ -77,10 +75,3 @@ def copy_code_dir(
         checkout_repo(os.path.join(cache_dir, 'rlons'), commit_rlons)
     if commit_mime is not None:
         checkout_repo(os.path.join(cache_dir, 'mime'), commit_mime)
-
-
-def create_parent_log_dir(exp_name):
-    log_dir = os.path.join(LOGDIR_PATH, exp_name)
-    print('Logs will be saved to {}'.format(log_dir))
-    if not os.path.exists(log_dir):
-        os.makedirs(log_dir)

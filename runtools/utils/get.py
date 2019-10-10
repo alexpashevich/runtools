@@ -8,7 +8,6 @@ from runtools.utils.config import read_args, append_args
 
 def p_option(mode, machines):
     if mode == 'edgar':
-        # TODO: check
         hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 22'
         return hosts
     # old machines can not run tensorflow >1.5 and slow
@@ -133,7 +132,8 @@ def eval_exp_lists(exp_name_list, args_list, exp_meta_list, eval_interval, eval_
     eval_first_epoch, eval_last_epoch, eval_iter = eval_interval
     exp_name_list_new, args_list_new, exp_meta_list_new = [], [], []
     for exp_name, args, exp_meta in zip(exp_name_list, args_list, exp_meta_list):
-        assert exp_meta['script'] == 'rlons.scripts.collect_demos'
+        assert exp_meta['script'] == 'rlons.collect'
+        # assert exp_meta['script'] == 'rlons.scripts.collect_demos'
         for eval_seed in eval_seeds:
             exp_name_seed = '{}_seed{}'.format(exp_name, eval_seed)
             args_seed = append_args(

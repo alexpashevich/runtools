@@ -1,7 +1,7 @@
 import os
 import json
 
-from runtools.settings import SCRIPT_TO_LOGDIR
+from runtools.settings import SCRIPT_TO_LOGDIR, MODEL_LOG_PATH
 
 
 def read_args(args_file):
@@ -79,4 +79,5 @@ def append_log_dir(args, exp_name, seed, args_file, script):
         print('Logdir was already specified, overwriting it')
     args = append_args(
         args, ['{}={}'.format(SCRIPT_TO_LOGDIR[script], exp_name)])
+    print('Logs will be saved to {}'.format(os.path.join(MODEL_LOG_PATH, exp_name)))
     return args

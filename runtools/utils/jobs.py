@@ -37,5 +37,6 @@ def run_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class):
             raise ValueError(('gridsearch over seeds is launched while a seed is already' +
                               'specified in the argument file'))
     # running the job
+    import pudb; pudb.set_trace()
     manage([job_class([exp_name, script, args])], only_initialization=False, sleep_duration=1)
     print('...\n...\n...')
