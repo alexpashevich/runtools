@@ -25,12 +25,6 @@ class JobMeta(object):
         self.job_id = None
         self.script_filename_key = None
 
-    def initialization(self):
-        # print oarsub command
-        # print(self.oarsub_command)
-        # script generation
-        self.generate_script()
-
     def run(self):
         """
         General pipeline of the run method:
@@ -47,6 +41,7 @@ class JobMeta(object):
             # run a job with oarsub (its job_id is retrieved)
             print(self.oarsub_command)
             self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
+            print('JOB_ID = {}\n\n\n'.format(self.job_id))
 
     def add_previous_job(self, job):
         assert job not in self.previous_jobs
@@ -57,7 +52,7 @@ class JobMeta(object):
         # TODO: this is the place where I will see if a job crashed or not. But this function will be called often
         # the job has crashed thus it has ended
         if self.job_crashed:
-            print('job crashed')
+            print('Job {} has crashed'.format(self.job_id))
             ended = True
         # the job has not been started
         elif self.job_id is None:
@@ -74,12 +69,10 @@ class JobMeta(object):
 
     @property
     def previous_jobs_ended(self):
-        ended = True
-        for jobs in self.previous_jobs:
-            if not jobs.job_ended:
-                ended = False
-                break
-        return ended
+        for job in self.previous_jobs:
+            if not job.job_ended:
+                return False
+        return True
 
     """ Management of the bash script, that are fed to oarsub """
 
@@ -98,18 +91,8 @@ class JobMeta(object):
         # install libraries that have been specified
         for library in self.librairies_to_install:
             commands.append('sudo apt-get install ' + library + ' --yes')
-        # # TO IMPROVE
-        #  copy the whole project to launch into it from a local directory
-        # if not os.path.exists(self.code_dirname):
-        #     os.makedirs(self.code_dirname)
-        # new_global_path = os.path.join(self.code_dirname, os.path.basename(self.global_path_project))
-        # if not os.path.exists(new_global_path):
-        #     command_copy_dir = 'cp -r ' + self.global_path_project + ' ' + self.code_dirname
-        #     print(command_copy_dir)
-        #     cmd(command_copy_dir)
-        # new_path_exe = os.path.join(new_global_path, self.local_path_exe)
-        path_exe = os.path.join(self.global_path_project, self.local_path_exe)
         # launch the main exe
+        path_exe = os.path.join(self.global_path_project, self.local_path_exe)
         if self.interpreter == '':
             command_script = self.interpreter + path_exe
         else:

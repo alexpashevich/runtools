@@ -33,6 +33,7 @@ def checkout_repo(repo, commit_tag):
 
 def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mime):
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
+    assert cache_mode in ('keep', 'copy', 'link')
     if cache_mode == 'keep':
         if not os.path.exists(cache_dir):
             copy_code_dir(cache_dir, git_commit_rlons, git_commit_mime, make_sym_link=True)
@@ -42,7 +43,7 @@ def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mim
         cache_dir,
         git_commit_rlons,
         git_commit_mime,
-        sym_link=(cache_mode == 'symlink'))
+        sym_link=(cache_mode == 'link'))
 
     # cache only the first exp directory, others are sym links to it
     for exp_id, exp_name in enumerate(exp_name_list[1:]):

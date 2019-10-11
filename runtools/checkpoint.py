@@ -24,7 +24,7 @@ def send_job(job, seed_path, timestamp, device, script):
     exp_name_seed = '{}-s{}'.format(exp_name, seed)
     log_folder = os.path.join(exp_name, seed_dir)
     train_args = get_train_args(log_folder, timestamp, device)
-    manage([job([exp_name_seed, script, train_args])], only_initialization=False, sleep_duration=1)
+    manage([job([exp_name_seed, script, train_args])])
 
 
 def main():
@@ -41,7 +41,7 @@ def main():
                         help='Number of cores to be used on the cluster')
     parser.add_argument('-w', '--wallclock', type=int, default=72,
                         help='Job wall clock time to be set on the cluster')
-    parser.add_argument('-sc', '--script', default='rlons.scripts.train',
+    parser.add_argument('-sc', '--script', default='rlons.train',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('--machines', type=str, default='f',
                         help='Which machines to use on the shared CPU cluster, ' \

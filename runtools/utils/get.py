@@ -20,17 +20,18 @@ def p_option(mode, machines):
     return ' and ({})'.format(hosts)
 
 
-def mode(config):
-    if config.mode in ALLOWED_MODES:
-        mode = config.mode
-    elif config.mode in [mode[0] for mode in ALLOWED_MODES]:
-        mode = [mode for mode in ALLOWED_MODES if mode[0] == config.mode][0]
+def job_mode(mode):
+    if mode in ALLOWED_MODES:
+        mode = mode
+    elif mode in [m[0] for m in ALLOWED_MODES]:
+        mode = [m for m in ALLOWED_MODES if m[0] == mode][0]
     else:
-        raise ValueError('mode {} is not allowed, available modes: {}'.format(config.mode, ALLOWED_MODES))
+        raise ValueError('mode {} is not allowed, available modes: {}'.format(
+            mode, ALLOWED_MODES))
     return mode
 
 
-def cache_mode(config, mode):
+def cache_mode(config, on_cluster):
     # all modes:
     # cache_mode == keep -> check if cache_code dir exists. if yes, do nothing. if not, create logdir.
     # local:
@@ -39,9 +40,9 @@ def cache_mode(config, mode):
     # default cache_mode is copy: remove the cache_code dir and copy the current code dir there
     if config.cache_mode is not None:
         return config.cache_mode
-    if mode in ('local', 'render'):
+    if not on_cluster:
         cache_mode = 'symlink'
-    elif mode in ('access2-cp', 'edgar'):
+    elif on_cluster:
         cache_mode = 'copy'
     return cache_mode
 
@@ -72,6 +73,28 @@ def job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
     return lambda run_argv: JobCluster(run_argv, p_options)
+
+
+def cluster_params(args, mode, besteffort, num_cores):
+    # remove the screening character first, then parse the args
+    args = args[1:]
+    args = args.strip().split(' ')
+    counter = 0
+    while counter < len(args):
+        if args[counter] == '-m':
+            mode = args[counter + 1]
+            mode = job_mode(mode)
+            counter += 2
+        elif args[counter] == '-b':
+            besteffort = True
+            counter += 1
+        elif args[counter] == '-nc':
+            num_cores = int(args[counter + 1])
+            counter += 2
+        else:
+            raise NotImplementedError('not recognized keyword {} in consecutive_jobs arg'.format(
+                args[counter]))
+    return mode, besteffort, num_cores
 
 
 def exp_lists(config, first_exp_id, num_exps):

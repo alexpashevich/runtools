@@ -4,39 +4,45 @@ from runtools.settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
 """ Class of functions that take a list of JobMeta as input """
 
 
-def manage(jobs, only_initialization=True, sleep_duration=20):
-    jobs_waiting_previous_jobs = jobs  # type: list[JobMeta]
+def manage(jobs, callback):
+    jobs_waiting_previous_jobs = jobs.copy()  # type: list[JobMeta]
     jobs_waiting_max_default_jobs = []  # type: list[JobMeta]
-    # initialize jobs
-    # print('Start Initialization')
+    # create the job script
     for job in jobs_waiting_previous_jobs:
-        job.initialization()
-    # print('End Initialization')
-    if not only_initialization:
-        while jobs_waiting_previous_jobs != [] or jobs_waiting_max_default_jobs != []:
-            # runs waiting because of previous jobs
-            selected_jobs = []
-            for job in jobs_waiting_previous_jobs:
-                if job.previous_jobs_ended:
-                    selected_jobs.append(job)
-            for job in selected_jobs:
-                jobs_waiting_previous_jobs.remove(job)
-                jobs_waiting_max_default_jobs.append(job)
-            # runs waiting are sorted by the inverse order of priority
-            jobs_waiting_max_default_jobs.sort(key=lambda x: x.priority_level, reverse=True)
-            # runs waiting because of max default jobs
-            selected_jobs = []
-            for job in jobs_waiting_max_default_jobs:
-                if run_available(job.machine_name, selected_jobs, job.besteffort):
-                    selected_jobs.append(job)
-            for job in selected_jobs:
-                job.run()
-                jobs_waiting_max_default_jobs.remove(job)
-            # some sleeping between each loop
-            cmd('sleep %i' % sleep_duration)
+        job.generate_script()
+    # launch the jobs
+    while_counter = 0
+    # TODO: probably write an except/try here (e.g. if OAR does not respond)
+    while (jobs_waiting_previous_jobs or
+           jobs_waiting_max_default_jobs or
+           any([not job.job_ended for job in jobs])):
+        # runs waiting because of previous jobs
+        selected_jobs = []
+        for job in jobs_waiting_previous_jobs:
+            if job.previous_jobs_ended:
+                selected_jobs.append(job)
+        for job in selected_jobs:
+            jobs_waiting_previous_jobs.remove(job)
+            jobs_waiting_max_default_jobs.append(job)
+        # runs waiting are sorted by the inverse order of priority
+        jobs_waiting_max_default_jobs.sort(key=lambda x: x.priority_level, reverse=True)
+        # runs waiting because of max default jobs
+        selected_jobs = []
+        for job in jobs_waiting_max_default_jobs:
+            if allowed(selected_jobs, job.machine_name, job.besteffort):
+                selected_jobs.append(job)
+        for job in selected_jobs:
+            job.run()
+            jobs_waiting_max_default_jobs.remove(job)
+        # some sleeping between each loop
+        callback(jobs, jobs_waiting_previous_jobs + jobs_waiting_max_default_jobs, while_counter)
+        while_counter += 1
+        cmd('sleep 1')
+    # report the last time (if needed)
+    callback(jobs, jobs_waiting_previous_jobs + jobs_waiting_max_default_jobs, while_counter)
 
 
-def run_available(machine_name, selected_runs, besteffort):
+def allowed(selected_runs, machine_name, besteffort):
     oarstat_lines = cmd("ssh " + machine_name + " ' oarstat ' ")
     cores_besteffort_nb = 0
     cores_default_nb = 0
