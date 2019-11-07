@@ -8,8 +8,11 @@ from runtools.utils.config import read_args, append_args
 
 def p_option(mode, machines):
     if mode == 'edgar':
-        hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 22'
-        return hosts
+        if machines == 's':
+            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 24 AND 27'
+        elif machines == 'f':
+            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 22'
+        return hosts + ' and gpumem > 10000'
     # old machines can not run tensorflow >1.5 and slow
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
@@ -26,8 +29,7 @@ def job_mode(mode):
     elif mode in [m[0] for m in ALLOWED_MODES]:
         mode = [m for m in ALLOWED_MODES if m[0] == mode][0]
     else:
-        raise ValueError('mode {} is not allowed, available modes: {}'.format(
-            mode, ALLOWED_MODES))
+        raise ValueError('mode {} is not allowed, available modes: {}'.format(mode, ALLOWED_MODES))
     return mode
 
 
@@ -41,7 +43,7 @@ def cache_mode(config, on_cluster):
     if config.cache_mode is not None:
         return config.cache_mode
     if not on_cluster:
-        cache_mode = 'symlink'
+        cache_mode = 'link'
     elif on_cluster:
         cache_mode = 'copy'
     return cache_mode
@@ -99,6 +101,8 @@ def cluster_params(args, mode, besteffort, num_cores):
 
 def exp_lists(config, first_exp_id, num_exps):
     gridargs_list = get_gridargs_list(config.grid)
+    if len(gridargs_list) == 1 and num_exps > 1:
+        gridargs_list *= num_exps
     if config.extra_args is not None:
         assert len(config.extra_args) in (1, num_exps)
         extra_args_list = config.extra_args
@@ -109,42 +113,45 @@ def exp_lists(config, first_exp_id, num_exps):
     exp_files = config.files
     if len(exp_files) == 1 and num_exps > 1:
         exp_files *= num_exps
-    assert len(exp_files) == len(extra_args_list)
+    exp_names = config.exp_names
+    if len(exp_names) == 1 and num_exps > 1:
+        exp_names *= num_exps
+    assert len(exp_files) == len(extra_args_list) and len(exp_files) == len(gridargs_list)
     exp_name_list, args_list, exp_meta_list = [], [], []
-    for args_file, extra_args in zip(exp_files, extra_args_list):
-        for i, gridargs in enumerate(gridargs_list):
-            args, exp_name, script = read_args(args_file)
-            args = append_args(args, gridargs)
-            args = append_args(args, extra_args)
-            if len(gridargs_list) > 1:
-                # TODO: check if this exp does not exist yet
-                exp_name += '_v' + str(i+first_exp_id)
-            exp_name_list.append(exp_name)
-            args_list.append(args)
-            exp_meta_list.append(
-                {'args_file': args_file,
-                 'extra_args': append_args(gridargs, extra_args),
-                 'script': script,
-                 'args': args,
-                 'full_command': 'python3 -m {} {}'.format(script, args)})
+    for idx, (args_file, extra_args, gridargs) in enumerate(zip(exp_files, extra_args_list, gridargs_list)):
+        args, exp_name, script = read_args(args_file)
+        if exp_names[idx] is not None:
+            exp_name = exp_names[idx]
+        args = append_args(args, gridargs)
+        args = append_args(args, extra_args)
+        if len(gridargs_list) > 1:
+            # TODO: check if this exp does not exist yet
+            exp_name += '_v' + str(first_exp_id + idx)
+        exp_name_list.append(exp_name)
+        args_list.append(args)
+        exp_meta_list.append(
+            {'args_file': args_file,
+                'extra_args': append_args(gridargs, extra_args),
+                'script': script,
+                'args': args,
+                'full_command': 'python3 -m {} {}'.format(script, args)})
     return exp_name_list, args_list, exp_meta_list
 
 
 def get_gridargs_list(grid):
-    # deprecated
     if not grid:
         return [None]
     gridargs_list = ['']
     grid_dict = collections.OrderedDict(sorted(grid.items()))
     for key, value_list in grid_dict.items():
-        assert isinstance(value_list, list) or isinstance(value_list, tuple)
+        assert isinstance(value_list, (list, tuple))
         new_gridargs_list = []
         for gridargs_old in gridargs_list:
             for value in value_list:
                 if ' ' in str(value):
                     print('removed spaces from {}, it became {}'.format(
                         value, str(value).replace(' ', '')))
-                gridarg = ' --{}={}'.format(key, str(value).replace(' ', ''))
+                gridarg = ' {}={}'.format(key, str(value).replace(' ', ''))
                 new_gridargs_list.append(gridargs_old + gridarg)
         gridargs_list = new_gridargs_list
     return gridargs_list
@@ -155,7 +162,7 @@ def eval_exp_lists(exp_name_list, args_list, exp_meta_list, eval_interval, eval_
     eval_first_epoch, eval_last_epoch, eval_iter = eval_interval
     exp_name_list_new, args_list_new, exp_meta_list_new = [], [], []
     for exp_name, args, exp_meta in zip(exp_name_list, args_list, exp_meta_list):
-        assert exp_meta['script'] == 'rlons.collect'
+        assert exp_meta['script'] == 'rlons.scripts.collect'
         # assert exp_meta['script'] == 'rlons.scripts.collect_demos'
         for eval_seed in eval_seeds:
             exp_name_seed = '{}_seed{}'.format(exp_name, eval_seed)

@@ -72,7 +72,7 @@ def append_args(args, extra_args):
     return args
 
 
-def append_log_dir(args, exp_name, seed, args_file, script):
+def append_log_dir(args, exp_name, args_file, script):
     assert '.json' in args_file
     assert script in SCRIPT_TO_LOGDIR, 'Script {} is not supported'.format(script)
     if SCRIPT_TO_LOGDIR[script] in args:

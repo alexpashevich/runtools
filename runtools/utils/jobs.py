@@ -5,36 +5,37 @@ from runtools.utils import config
 from job.manager import manage
 
 
-def run_locally(exp_name, args, script, args_file, seed=None, render=False):
+def run_locally(exp_name, args, script, args_file, seed, render, debug):
     # log dir creation
-    if seed is None:
-        seed = 0
-    elif script != 'rlons.scripts.train':
-        # in bc training the seed arg is not used
-        argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
-        args = config.append_args(args, ['{}={}'.format(argname, seed)])
-    args = config.append_log_dir(args, exp_name, seed, args_file, script)
+    if 'collect' in script and seed is not None:
+        args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
+    args = config.append_log_dir(args, exp_name, args_file, script)
     script = 'python3 -u -m {} {}'.format(script, args)
-    if render:
-        rendering_on = ' collect.render=True'
-        script += rendering_on
+    if render and 'collect' in script:
+        script += ' collect.env.render=True'
+    if debug:
+        if 'rlons.scripts.collect' in script:
+            script += ' collect.workers=0'
+        elif 'rlons.scripts.train' in script:
+            script += ' train.workers=0'
+        else:
+            script += ' train.workers=0 collect.workers=0'
     print('Running:\n' + script)
-    if not render and 'DISPLAY' in os.environ:
-        del os.environ['DISPLAY']
+    # if not render and 'DISPLAY' in os.environ:
+    #     del os.environ['DISPLAY']
     os.system(script)
 
 
 def init_on_cluster(exp_name, args, script, args_file, seed, nb_seeds, job_class):
     # log dir creation
-    args = config.append_log_dir(args, exp_name, seed, args_file, script)
+    args = config.append_log_dir(args, exp_name, args_file, script)
     # adding the seed to arguments and exp_name
     if '.seed=' not in args:
-        if script != 'rlons.scripts.train':
+        if 'collect' in script:
             # in bc training the seed arg is not used
-            argname = 'collect.seed' if script != 'ppo.train.run' else 'general.seed'
-            args = config.append_args(args, ['{}={}'.format(argname, seed)])
+            args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
     else:
-        if 'seed=' in args and nb_seeds > 1:
+        if nb_seeds > 1:
             raise ValueError(('gridsearch over seeds is launched while a seed is already' +
                               'specified in the argument file'))
     return job_class([exp_name, script, args])

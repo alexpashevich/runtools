@@ -23,10 +23,11 @@ MAX_BESTEFFORT_CORES = {GPU_MACHINE: 1000, SHARED_CPU_MACHINE: 100000}
 
 # Scripts to logdir mapping
 SCRIPT_TO_LOGDIR = {
-    'rlons.collect': 'collect.folder',
-    'rlons.scripts.collect_images': 'collect.folder',
-    'rlons.train': 'model.name',
-    'sim2real.train': 'sim2real.name'}
+    'rlons.scripts.collect': 'collect.folder',
+    'rlons.scripts.train': 'train.model.name',
+    'rlons.scripts.eval': 'train.model.name',
+    'rlons.scripts.method': 'train.model.name',
+    'rlons.scripts.sim2real': 'train.model.name'}
 
-USED_CODE_DIRS = 'mime', 'rlons'
+USED_CODE_DIRS = 'unmake-rl', 'rlons'
 ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar')

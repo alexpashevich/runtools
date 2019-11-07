@@ -41,11 +41,20 @@ class JobMeta(object):
             # run a job with oarsub (its job_id is retrieved)
             print(self.oarsub_command)
             self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
+            self.link_std()
             print('JOB_ID = {}\n\n\n'.format(self.job_id))
 
     def add_previous_job(self, job):
         assert job not in self.previous_jobs
         self.previous_jobs.append(job)
+
+    def link_std(self):
+        for stdname in ['stderr', 'stdout']:
+            stdfile = os.path.join(self.oarsub_dirname, '{}_{}.txt'.format(self.job_id, stdname))
+            stdfile_link = os.path.join(self.oarsub_dirname, '{}.txt'.format(stdname))
+            if os.path.exists(stdfile_link):
+                os.unlink(stdfile)
+            os.symlink(stdfile, stdfile_link)
 
     @property
     def job_ended(self):
@@ -119,8 +128,7 @@ class JobMeta(object):
 
     @property
     def get_script_filename(self):
-        return os.path.join(self.script_dirname,
-                            str(self.script_filename_key) + '.sh')
+        return os.path.join(self.script_dirname, str(self.script_filename_key) + '.sh')
 
     @property
     def script_filename(self):

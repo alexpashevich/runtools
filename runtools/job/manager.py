@@ -29,8 +29,10 @@ def manage(jobs, callback):
         # runs waiting because of max default jobs
         selected_jobs = []
         for job in jobs_waiting_max_default_jobs:
-            if allowed(selected_jobs, job.machine_name, job.besteffort):
-                selected_jobs.append(job)
+            selected_jobs.append(job)
+            # TODO: uncomment if you care about the limits in settings
+            # if allowed(selected_jobs, job.machine_name, job.besteffort):
+            #     selected_jobs.append(job)
         for job in selected_jobs:
             job.run()
             jobs_waiting_max_default_jobs.remove(job)
