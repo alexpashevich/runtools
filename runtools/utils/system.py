@@ -40,10 +40,7 @@ def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mim
         return
 
     copy_code_dir(
-        cache_dir,
-        git_commit_rlons,
-        git_commit_mime,
-        sym_link=(cache_mode == 'link'))
+        cache_dir, git_commit_rlons, git_commit_mime, sym_link=(cache_mode == 'link'))
 
     # cache only the first exp directory, others are sym links to it
     for exp_id, exp_name in enumerate(exp_name_list[1:]):
@@ -62,10 +59,14 @@ def copy_code_dir(
             shutil.rmtree(cache_dir)
         else:
             os.unlink(cache_dir)
+
     if not sym_link:
         os.makedirs(cache_dir)
         for code_dir in USED_CODE_DIRS:
-            cmd('cp -R {} {}/'.format(os.path.join(CODEDIR_PATH, code_dir), cache_dir))
+            code_dir_path = os.path.join(CODEDIR_PATH, code_dir)
+            # we do it in case the code dirs are symlinks
+            os.makedirs(os.path.join(cache_dir, code_dir))
+            cmd('cp -R {}/. {}/'.format(code_dir_path, os.path.join(cache_dir, code_dir)))
     else:
         if not sym_link_to_exp:
             sym_link_to = CODEDIR_PATH
