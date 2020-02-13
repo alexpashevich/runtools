@@ -3,11 +3,12 @@
 import curses
 import os
 import time
+import json
 
 import subprocess as sp
 
 from runtools.utils.python import cmd
-from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH
+from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH, MODEL_LOG_PATH
 
 MAX_LENGTH = 80
 
@@ -27,28 +28,68 @@ def tail(f, n):
     return lines[-n:]
 
 
-def cut_step(string):
-    try:
-        # version for BC
-        substrings = [('Epoch ', '\n'),
-                      ('Training after ', ' steps'),
-                      ('Writing trajectory ', '\n')]
-        for begin_string, end_string in substrings:
-            if begin_string in string and end_string in string:
-                begin = string.rfind(begin_string)
-                string_temp = string[begin + len(begin_string):]
-                end = string_temp.find(end_string)
-        step = string_temp[:end].strip()
-        if len(step) > 15:
-            return 'n/a'
-        # if len(step) > 3:
-        #     step = step[:-3] + 'K'
-        #     if len (step) > 4:
-        #         step = step[:-4] + '.' + step[-4:]
-        return step
-    except:
-        return 'n/a'
+def parse_stage(oarout):
+    stages = ('value_data', 'value_net', 'heatmaps_data', 'heatmaps_net')
+    # skip_strings = ['Skipping stage {}'.format(s) for s in stages]
+    start_strings = ['Creating config for {}'.format(s) for s in stages]
+    stage_idx = -1
+    for idx, start_string in enumerate(start_strings):
+        if start_string in oarout:
+            stage_idx = idx
+    if stage_idx != -1:
+        return stages[stage_idx]
+    return 'n/a'
 
+
+def cut_step(stage, oarout, oarerr):
+    if 'net' in stage or stage == 'n/a':
+        # training phase
+        begin_string, end_string = 'Epoch ', '\n'
+        oar_string = oarout
+    else:
+        # collection phase
+        begin_string, end_string = '| ', ' ['
+        oar_string = oarerr
+    if begin_string in oar_string and end_string in oar_string:
+        begin = oar_string.rfind(begin_string)
+        string_temp = oar_string[begin + len(begin_string):]
+        end = string_temp.find(end_string)
+        step = string_temp[:end].strip()
+        if len(step) < 16:
+            return step
+    return 'n/a'
+
+
+def cut_accuracy(accuracy, oarout):
+    begin_string, end_string = 'accuracy_{} '.format(accuracy[2:]), ','
+    if begin_string in oarout and end_string in oarout:
+        begin = oarout.rfind(begin_string)
+        string_temp = oarout[begin + len(begin_string):]
+        end = string_temp.find(end_string)
+        accuracy = string_temp[:end].strip()
+        if len(accuracy) < 10:
+            return accuracy
+    return 'n/a'
+
+def old_way(job_name, job_id, job_list, keywords):
+    oarout = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stdout.txt')
+    oarerr = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stderr.txt')
+    try:
+        oarout_list = tail(open(oarout, 'r'), 300)
+        oarerr_list = tail(open(oarerr, 'r'), 300)
+        oarout_string = ' '.join(oarout_list)
+        oarerr_string = ' '.join(oarerr_list)
+        stage = parse_stage(oarout_string)
+        job_list.append(stage)
+        job_list.append(cut_step(stage, oarout_string, oarerr_string))
+        for accuracy in keywords[5:]:
+            job_list.append(cut_accuracy(accuracy, oarout_string))
+    except:
+        status = 'W' if 'W {}'.format(LOGIN) in job_name else 'n/a'
+        job_list.append('n/a')
+        job_list.append(status)
+        job_list += ['n/a'] * len(keywords[5:])
+    return job_list
 
 def getMachineSummary(machine, keywords):
     try:
@@ -70,14 +111,23 @@ def getMachineSummary(machine, keywords):
                 job_name = job_name.split(',')[0]
         duration = (job.split(' R=')[0]).split(' ')[-1]
         job_list = [job_name, job_id, duration]
-        oarout = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stdout.txt')
-        try:
-            oarout_list = tail(open(oarout, 'r'), 300)
-            oarout_string = ' '.join(oarout_list)
-            job_list.append(cut_step(oarout_string))
-        except:
-            status = 'W' if 'W {}'.format(LOGIN) in job else 'n/a'
-            job_list.append(status)
+        method_info_path = os.path.join(MODEL_LOG_PATH, job_name, 'method.json')
+        if os.path.exists(method_info_path):
+            method_info = json.load(open(method_info_path, 'r'))
+            stage = str(method_info.get('stage', 'n/a'))
+            if 'heatmaps' not in stage:
+                job_list.append(stage)
+                job_list.append(str(method_info.get('iteration', 'n/a')))
+                job_list.append(str(method_info.get('epoch', 'n/a')))
+                best_losses = method_info.get('best_losses', {})
+                best_losses_str = ''
+                for loss_key, loss_value in best_losses.items():
+                    best_losses_str += '{0}: {1:.2f}, '.format(loss_key, loss_value)
+                job_list.append(best_losses_str)
+            else:
+                job_list = old_way(job_name, job_id, job_list, keywords)
+        else:
+            job_list = old_way(job_name, job_id, job_list, keywords)
 
         machine_summary.append(job_list)
     return machine_summary
@@ -128,7 +178,7 @@ class Monitor:
 
         machines = [GPU_MACHINE, CPU_MACHINE]
         all_summaries = {machine: [] for machine in machines}
-        keywords = ['job_name', 'job_id', 'time', 'itr']
+        keywords = ['job_name', 'job_id', 'time', 'stage', 'itr', 'epoch', 'info']
         for machine in machines:
             all_summaries[machine] = getMachineSummary(machine, keywords)
 

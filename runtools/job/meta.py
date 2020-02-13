@@ -52,7 +52,7 @@ class JobMeta(object):
         for stdname in ['stderr', 'stdout']:
             stdfile = os.path.join(self.oarsub_dirname, '{}_{}.txt'.format(self.job_id, stdname))
             stdfile_link = os.path.join(self.oarsub_dirname, '{}.txt'.format(stdname))
-            if os.path.exists(stdfile_link):
+            if os.path.islink(stdfile_link):
                 os.unlink(stdfile_link)
             os.symlink(stdfile, stdfile_link)
 

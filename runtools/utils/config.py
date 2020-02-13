@@ -52,10 +52,12 @@ def _get_argument_value_idxs(args, arg_key):
 def append_args(args, extra_args):
     if not extra_args and not args:
         return ''
-    if not args or not extra_args:
-        return args or extra_args
+    # if not args or not extra_args:
+    #     return args or extra_args
     if isinstance(extra_args, str):
         extra_args = extra_args.replace('--', '').strip().split(' ')
+    if extra_args is None:
+        extra_args = []
     for extra_arg in extra_args:
         arg_key = extra_arg[:extra_arg.find('=')+1]
         if len(extra_arg) > len(arg_key) and len(arg_key) > 0:
@@ -69,6 +71,9 @@ def append_args(args, extra_args):
             # if the arg is something like --pudb
             if extra_arg not in args:
                 args += ' ' + extra_arg
+    if 'train.eval.task.' in args and '--force' not in args:
+        # make sacred to ignore the extra argument
+        args += ' --force'
     return args
 
 

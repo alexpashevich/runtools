@@ -2,7 +2,6 @@ import os
 import sys
 import shutil
 
-from git import Git
 from copy import copy
 
 from runtools.utils.python import cmd
@@ -12,7 +11,7 @@ from runtools.settings import CODEDIR_PATH, CACHEDIR_PATH, USED_CODE_DIRS
 def get_sys_path_clean():
     sys_path_clean = []
     for path in sys.path:
-        if CODEDIR_PATH not in path and CODEDIR_PATH.replace('thoth/', '') not in path:
+        if CODEDIR_PATH not in path and CODEDIR_PATH.replace('thoth/', '') not in path and 'shared_mac/Code' not in path:
             sys_path_clean.append(path)
     return sys_path_clean
 
@@ -26,6 +25,7 @@ def change_sys_path(sys_path_clean, logdir):
 
 
 def checkout_repo(repo, commit_tag):
+    from git import Git
     g = Git(repo)
     g.checkout(commit_tag)
     print('checkouted {} to {}'.format(repo, commit_tag))
@@ -35,8 +35,8 @@ def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mim
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
     assert cache_mode in ('keep', 'copy', 'link')
     if cache_mode == 'keep':
-        if not os.path.exists(cache_dir):
-            copy_code_dir(cache_dir, git_commit_rlons, git_commit_mime, make_sym_link=True)
+        if not os.path.exists(cache_dir) and not os.path.islink(cache_dir):
+            copy_code_dir(cache_dir, git_commit_rlons, git_commit_mime, sym_link=True)
         return
 
     copy_code_dir(

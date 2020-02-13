@@ -11,13 +11,17 @@ def p_option(mode, machines):
         if machines == 's':
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 24 AND 27'
         elif machines == 'f':
-            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 22'
+            # TODO: put BETWEEN 1 AND 22
+            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 20'
+        elif machines == 'm':
+            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 21 AND 22'
         return hosts + ' and gpumem > 10000'
     # old machines can not run tensorflow >1.5 and slow
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
     elif machines == 'f':
-        hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 21 AND 54'
+        # hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 21 AND 54'
+        hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 39 AND 54 or cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 21 AND 37'
     else:
         raise ValueError('machines descired type {} is unknown'.format(machines))
     return ' and ({})'.format(hosts)
@@ -124,17 +128,17 @@ def exp_lists(config, first_exp_id, num_exps):
             exp_name = exp_names[idx]
         args = append_args(args, gridargs)
         args = append_args(args, extra_args)
-        if len(gridargs_list) > 1:
+        if gridargs_list[0] is not None:
             # TODO: check if this exp does not exist yet
             exp_name += '_v' + str(first_exp_id + idx)
         exp_name_list.append(exp_name)
         args_list.append(args)
         exp_meta_list.append(
             {'args_file': args_file,
-                'extra_args': append_args(gridargs, extra_args),
-                'script': script,
-                'args': args,
-                'full_command': 'python3 -m {} {}'.format(script, args)})
+             'extra_args': append_args(gridargs if gridargs is not None else '', extra_args),
+             'script': script,
+             'args': args,
+             'full_command': 'python3 -m {} {}'.format(script, args)})
     return exp_name_list, args_list, exp_meta_list
 
 

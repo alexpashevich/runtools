@@ -11,8 +11,8 @@ def run_locally(exp_name, args, script, args_file, seed, render, debug):
         args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
     args = config.append_log_dir(args, exp_name, args_file, script)
     script = 'python3 -u -m {} {}'.format(script, args)
-    if render and 'collect' in script:
-        script += ' collect.env.render=True'
+    # if render and 'collect' in script:
+    #     script += ' collect.env.render=True'
     if debug:
         if 'rlons.scripts.collect' in script:
             script += ' collect.workers=0'
@@ -21,8 +21,8 @@ def run_locally(exp_name, args, script, args_file, seed, render, debug):
         else:
             script += ' train.workers=0 collect.workers=0'
     print('Running:\n' + script)
-    # if not render and 'DISPLAY' in os.environ:
-    #     del os.environ['DISPLAY']
+    if not render and 'DISPLAY' in os.environ and 'egl' in args:
+        del os.environ['DISPLAY']
     os.system(script)
 
 
