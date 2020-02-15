@@ -13,84 +13,6 @@ from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH, MOD
 MAX_LENGTH = 80
 
 
-def tail(f, n):
-    assert n >= 0
-    pos, lines = n+1, []
-    while len(lines) <= n:
-        try:
-            f.seek(-pos, 2)
-        except IOError:
-            f.seek(0)
-            break
-        finally:
-            lines = list(f)
-        pos *= 2
-    return lines[-n:]
-
-
-def parse_stage(oarout):
-    stages = ('value_data', 'value_net', 'heatmaps_data', 'heatmaps_net')
-    # skip_strings = ['Skipping stage {}'.format(s) for s in stages]
-    start_strings = ['Creating config for {}'.format(s) for s in stages]
-    stage_idx = -1
-    for idx, start_string in enumerate(start_strings):
-        if start_string in oarout:
-            stage_idx = idx
-    if stage_idx != -1:
-        return stages[stage_idx]
-    return 'n/a'
-
-
-def cut_step(stage, oarout, oarerr):
-    if 'net' in stage or stage == 'n/a':
-        # training phase
-        begin_string, end_string = 'Epoch ', '\n'
-        oar_string = oarout
-    else:
-        # collection phase
-        begin_string, end_string = '| ', ' ['
-        oar_string = oarerr
-    if begin_string in oar_string and end_string in oar_string:
-        begin = oar_string.rfind(begin_string)
-        string_temp = oar_string[begin + len(begin_string):]
-        end = string_temp.find(end_string)
-        step = string_temp[:end].strip()
-        if len(step) < 16:
-            return step
-    return 'n/a'
-
-
-def cut_accuracy(accuracy, oarout):
-    begin_string, end_string = 'accuracy_{} '.format(accuracy[2:]), ','
-    if begin_string in oarout and end_string in oarout:
-        begin = oarout.rfind(begin_string)
-        string_temp = oarout[begin + len(begin_string):]
-        end = string_temp.find(end_string)
-        accuracy = string_temp[:end].strip()
-        if len(accuracy) < 10:
-            return accuracy
-    return 'n/a'
-
-def old_way(job_name, job_id, job_list, keywords):
-    oarout = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stdout.txt')
-    oarerr = os.path.join(OAR_LOG_PATH, job_name, job_id + '_stderr.txt')
-    try:
-        oarout_list = tail(open(oarout, 'r'), 300)
-        oarerr_list = tail(open(oarerr, 'r'), 300)
-        oarout_string = ' '.join(oarout_list)
-        oarerr_string = ' '.join(oarerr_list)
-        stage = parse_stage(oarout_string)
-        job_list.append(stage)
-        job_list.append(cut_step(stage, oarout_string, oarerr_string))
-        for accuracy in keywords[5:]:
-            job_list.append(cut_accuracy(accuracy, oarout_string))
-    except:
-        status = 'W' if 'W {}'.format(LOGIN) in job_name else 'n/a'
-        job_list.append('n/a')
-        job_list.append(status)
-        job_list += ['n/a'] * len(keywords[5:])
-    return job_list
-
 def getMachineSummary(machine, keywords):
     try:
         jobs = cmd("ssh -x " + machine + " 'oarstat | grep " + LOGIN + "'")
@@ -115,19 +37,20 @@ def getMachineSummary(machine, keywords):
         if os.path.exists(method_info_path):
             method_info = json.load(open(method_info_path, 'r'))
             stage = str(method_info.get('stage', 'n/a'))
-            if 'heatmaps' not in stage:
-                job_list.append(stage)
+            job_list.append(stage)
+            if stage != 'heatmaps_net':
                 job_list.append(str(method_info.get('iteration', 'n/a')))
-                job_list.append(str(method_info.get('epoch', 'n/a')))
-                best_losses = method_info.get('best_losses', {})
-                best_losses_str = ''
-                for loss_key, loss_value in best_losses.items():
-                    best_losses_str += '{0}: {1:.2f}, '.format(loss_key, loss_value)
-                job_list.append(best_losses_str)
             else:
-                job_list = old_way(job_name, job_id, job_list, keywords)
+                job_list.append('1')
+            job_list.append(str(method_info.get('epoch', 'n/a')))
+            best_losses = method_info.get('best_losses', {})
+            best_losses_str = ''
+            for loss_key, loss_value in best_losses.items():
+                loss_key_short = ''.join([word.upper()[0] for word in loss_key.split('_')])
+                best_losses_str += '{0}: {1:.2f}, '.format(loss_key_short, loss_value)
+            job_list.append(best_losses_str[:-2])
         else:
-            job_list = old_way(job_name, job_id, job_list, keywords)
+            job_list.extend(['n/a'] * (len(keywords) - len(job_list)))
 
         machine_summary.append(job_list)
     return machine_summary
@@ -187,7 +110,7 @@ class Monitor:
                 jobs_machine_sorted = [all_summaries[machine][0]] + sorted(all_summaries[machine][1:])
                 all_summaries[machine] = jobs_machine_sorted
 
-        self.outputLines = ['Monitoring...']
+        self.outputLines = []
         for machine, machine_summaries in all_summaries.items():
             self.outputLines.append('### ' + machine + ' ###')
             if len(machine_summaries) > 0:
