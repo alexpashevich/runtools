@@ -10,6 +10,8 @@ import subprocess as sp
 from runtools.utils.python import cmd
 from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH, MODEL_LOG_PATH
 
+from rlons.utils import losses
+
 MAX_LENGTH = 80
 
 
@@ -35,23 +37,33 @@ def getMachineSummary(machine, keywords):
         job_list = [job_name, job_id, duration]
         method_info_path = os.path.join(MODEL_LOG_PATH, job_name, 'method.json')
         if os.path.exists(method_info_path):
-            method_info = json.load(open(method_info_path, 'r'))
-            stage = str(method_info.get('stage', 'n/a'))
+            method_info = json.load(open(method_info_path, 'r'))[-1]
+            stage = str(method_info['stage'])
             job_list.append(stage)
-            if stage != 'heatmaps_net':
-                job_list.append(str(method_info.get('iteration', 'n/a')))
+            job_list.append(str(method_info['iteration']))
+            progress = method_info.get('progress', -1)
+            total = method_info.get('total', -1)
+            job_list.append('{}/{}'.format(progress, total))
+            if stage == 'net':
+                losses_stage = 'net'
+            elif 'value' in stage:
+                losses_stage = 'value_net'
+            elif 'heatmaps' in stage:
+                losses_stage = 'heatmaps_net'
             else:
-                job_list.append('1')
-            job_list.append(str(method_info.get('epoch', 'n/a')))
-            best_losses = method_info.get('best_losses', {})
+                print('unknown stage {}'.format(stage))
+                assert False
+            best_losses = losses.get_best(job_name, losses_stage)[0]
             best_losses_str = ''
             for loss_key, loss_value in best_losses.items():
                 loss_key_short = ''.join([word.upper()[0] for word in loss_key.split('_')])
                 best_losses_str += '{0}: {1:.2f}, '.format(loss_key_short, loss_value)
-            job_list.append(best_losses_str[:-2])
+            if best_losses_str:
+                job_list.append(best_losses_str[:-2])
+            else:
+                job_list.append('n/a')
         else:
             job_list.extend(['n/a'] * (len(keywords) - len(job_list)))
-
         machine_summary.append(job_list)
     return machine_summary
 
