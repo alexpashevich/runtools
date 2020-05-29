@@ -31,22 +31,21 @@ def checkout_repo(repo, commit_tag):
     print('checkouted {} to {}'.format(repo, commit_tag))
 
 
-def create_cache_dir(exp_name_list, cache_mode, git_commit_alfred):
+def create_cache_dir(exp_name_list, cache_mode, git_commit_alfred, sym_link_to_exp=None):
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
     assert cache_mode in ('keep', 'copy', 'link')
     if cache_mode == 'keep':
         if not os.path.exists(cache_dir) and not os.path.islink(cache_dir):
-            copy_code_dir(cache_dir, git_commit_alfred, sym_link=True)
+            copy_code_dir(cache_dir, git_commit_alfred, sym_link=True, sym_link_to_exp=sym_link_to_exp)
         return
 
-    copy_code_dir(cache_dir, git_commit_alfred, sym_link=(cache_mode == 'link'))
+    copy_code_dir(cache_dir, git_commit_alfred, sym_link=(cache_mode == 'link'), sym_link_to_exp=sym_link_to_exp)
 
     # cache only the first exp directory, others are sym links to it
     for exp_id, exp_name in enumerate(exp_name_list[1:]):
         if exp_name not in exp_name_list[:1 + exp_id]:
             cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
-            copy_code_dir(
-                cache_dir, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+            copy_code_dir(cache_dir, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
 
 
 def copy_code_dir(cache_dir, commit_alfred, sym_link=False, sym_link_to_exp=None):

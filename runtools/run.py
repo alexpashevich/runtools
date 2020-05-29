@@ -31,6 +31,8 @@ def parse_config():
     # what to do with the code
     parser.add_argument('-cm', '--cache_mode', default=None,
                         help='Cache mode, should be in {"keep", "link", "copy"}')
+    parser.add_argument('-sym', '--sym_link_to_exp', default=None,
+                        help='Sym link the code to the one of the specified experiment (must be a valid one)')
     parser.add_argument('-gca', '--git_commit_alfred', type=str, default=None,
                         help='Git commit to checkout the ALFRED repo to.')
     # where to run them
@@ -46,14 +48,9 @@ def parse_config():
     parser.add_argument('-w', '--wallclock', type=int, default=None,
                         help='Job wallclock time to be set on the cluster.')
     # evaluation stuff (new)
-    parser.add_argument('-et', '--eval_task', default=False, action='store_true',
-                        help='Wheather the job should evaluate ALFRED task success rate')
-    parser.add_argument('-esg', '--eval_subgoal', default=False, action='store_true',
-                        help='Wheather the job should evaluate ALFRED subgoals success rate')
-    # TODO: make a default value (to evaluate best_seen.pth e.g.)
-    parser.add_argument('-es', '--eval_simple', default=False, action='store_true',
-                        help='Evaluate only a single provided checkpoint.')
-    parser.add_argument('-er', '--eval_range', type=int, nargs='+', default=[3, 20, 2],
+    parser.add_argument('-et', '--eval_type', type=str, default=None,
+                        help='Type of alfred evaluation: task, subgoal, task-full, subgoal-full')
+    parser.add_argument('-er', '--eval_full_range', type=int, nargs='+', default=[3, 20, 2],
                         help='first_epoch, last_epoch, (iter_epoch)')
     # misc
     parser.add_argument('-cj', '--consecutive_jobs', type=str, default=None, nargs='+',
@@ -83,11 +80,14 @@ def main():
         num_exps *= np.prod([len(l) for l in config.grid.values()])
     exp_name_list, args_list, exp_meta_list = get.exp_lists(config, config.first_exp_id, num_exps)
 
-    if config.eval_task or config.eval_subgoal:
-        assert config.machines in ('f', 'e')
-        config.machines = 'e'
+    if config.eval_type is not None:
+        # the user is asking for evaluation
+        assert config.eval_type in ('task', 'subgoal', 'task-full', 'subgoal-full')
+        if mode == 'edgar':
+            assert config.machines in ('f', 'e') # f is default, e is evaluation nodes
+            config.machines = 'e'
         exp_name_list, args_list, exp_meta_list = get.eval_exp_lists(
-            exp_name_list, args_list, exp_meta_list, config.eval_range, config.eval_task, config.eval_subgoal)
+            exp_name_list, args_list, exp_meta_list, config.eval_type, config.eval_full_range)
 
     if len(exp_name_list) > 1:
         # on a local machine only a single job should be executed or several consecutive ones
@@ -96,10 +96,8 @@ def main():
         # while launching consecutive jobs, we should provide parameters for all exps
         assert len(config.consecutive_jobs) == len(exp_name_list)
 
-    cache_mode = get.cache_mode(
-        config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
-    system.create_cache_dir(
-        exp_name_list, cache_mode, config.git_commit_alfred)
+    cache_mode = get.cache_mode(config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
+    system.create_cache_dir(exp_name_list, cache_mode, config.git_commit_alfred, config.sym_link_to_exp)
 
     # run the experiment(s)
     jobs_list = []

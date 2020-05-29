@@ -178,26 +178,24 @@ def append_to_lists(new_exp_name, new_exp_args, old_exp_meta, exp_name_list, arg
     args_list.append(new_exp_args)
     exp_meta_list.append(new_exp_meta)
 
-def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_range, eval_task, eval_subgoal):
+def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_type, eval_full_range):
+    if 'full' in eval_type:
+        assert len(eval_full_range) in (2, 3)
+        eval_epochs = list(range(*eval_full_range))
 
-    if eval_range is not None:
-        assert len(eval_range) in (2, 3)
-        eval_range = list(range(*eval_range))
     exp_name_list, args_list, exp_meta_list = [], [], []
     for exp_name, args, exp_meta in zip(exp_name_list_orig, args_list_orig, exp_meta_list_orig):
         assert exp_meta['script'] == 'alfred.eval.eval_seq2seq'
         # assert exp_meta['script'] == 'rlons.scripts.collect'
         args = append_args(args, ['eval.exp={}'.format(exp_name)])
         exp_name = 'eval_{}'.format(exp_name)
-        if eval_subgoal:
-            assert not eval_task
+        if 'subgoal' in eval_type:
             args = append_args(args, ['eval.subgoals=all'])
-        if eval_range is None:
+        if 'full' not in eval_type:
             append_to_lists(exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
         else:
             exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
-            for eval_epoch in eval_range:
-                # TODO: check if not eval_simple. maybe eval_simple == eval_range is None?
+            for eval_epoch in eval_epochs:
                 exp_name_epoch = '{}_m{}'.format(exp_name, eval_epoch)
                 args_epoch = append_args(
                     deepcopy(args), ['eval.fast_eval=True', 'eval.checkpoint=model_{}.pth'.format(eval_epoch)])
@@ -207,5 +205,4 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
             exp_name_list += exp_name_list_l
             args_list += args_list_l
             exp_meta_list += exp_meta_list_l
-
     return exp_name_list, args_list, exp_meta_list

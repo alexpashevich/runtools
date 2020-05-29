@@ -1,3 +1,5 @@
+import time
+
 from runtools.utils.python import cmd
 from runtools.settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
 
@@ -12,7 +14,6 @@ def manage(jobs, callback):
         job.generate_script()
     # launch the jobs
     while_counter = 0
-    # TODO: probably write an except/try here (e.g. if OAR does not respond)
     while (jobs_waiting_previous_jobs or jobs_waiting_max_default_jobs or any([not job.job_ended for job in jobs])):
         # runs waiting because of previous jobs
         selected_jobs = []
@@ -37,13 +38,17 @@ def manage(jobs, callback):
         # some sleeping between each loop
         callback(jobs, jobs_waiting_previous_jobs + jobs_waiting_max_default_jobs, while_counter)
         while_counter += 1
-        cmd('sleep 1')
+        time.sleep(1)
     # report the last time (if needed)
     callback(jobs, jobs_waiting_previous_jobs + jobs_waiting_max_default_jobs, while_counter)
 
 
 def allowed(selected_runs, machine_name, besteffort):
-    oarstat_lines = cmd("ssh " + machine_name + " ' oarstat ' ")
+    try:
+        oarstat_lines = cmd("ssh " + machine_name + " ' oarstat ' ")
+    except:
+        # we can not connect to the cluster
+        return False
     cores_besteffort_nb = 0
     cores_default_nb = 0
     # check number of jobs on clusters

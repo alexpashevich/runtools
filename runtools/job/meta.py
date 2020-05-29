@@ -1,4 +1,5 @@
 import os
+import time
 
 from random import randint
 from runtools.utils.python import cmd
@@ -40,9 +41,17 @@ class JobMeta(object):
         if not self.job_crashed:
             # run a job with oarsub (its job_id is retrieved)
             print(self.oarsub_command)
-            self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
-            self.link_std()
-            print('JOB_ID = {}\n\n\n'.format(self.job_id))
+            success = False
+            while not success:
+                try:
+                    self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
+                    self.link_std()
+                    print('JOB_ID = {}\n\n\n'.format(self.job_id))
+                    success = True
+                except:
+                    print('Can not connect to {}, retrying in 10 sec...'.format(self.machine_name))
+                    time.sleep(10)
+
 
     def add_previous_job(self, job):
         assert job not in self.previous_jobs
@@ -68,12 +77,16 @@ class JobMeta(object):
             ended = False
         # the job has been launched, we check if it is still running
         else:
-            ended = True
-            oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
-            for line in oarstat_lines:
-                if self.job_id in line:
-                    ended = False
-                    break
+            try:
+                ended = True
+                oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
+                for line in oarstat_lines:
+                    if self.job_id in line:
+                        ended = False
+                        break
+            except:
+                # we don't really know since we can not connect to the cluster
+                ended = False
         return ended
 
     @property
