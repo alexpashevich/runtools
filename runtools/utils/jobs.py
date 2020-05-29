@@ -18,6 +18,10 @@ def run_locally(exp_name, args, script, args_file, seed, render, debug):
             script += ' collect.workers=0'
         elif 'rlons.scripts.train' in script:
             script += ' train.workers=0'
+        elif 'alfred.train' in script or 'alfred.eval' in script:
+            script += ' exp.num_workers=0'
+        elif 'alfred.gen' in script:
+            script += ' args.num_threads=0'
         else:
             script += ' train.workers=0 collect.workers=0'
     print('Running:\n' + script)
@@ -75,6 +79,14 @@ def run_on_cluster(config, jobs, exp_names, exp_metas):
         for i, job in enumerate(reversed(jobs)):
             for job_prev in jobs[:-i - 1]:
                 job.add_previous_job(job_prev)
+    if config.eval_task or config.eval_subgoal:
+        num_eval_epochs = len(range(*config.eval_range))
+        assert len(jobs) % (num_eval_epochs + 1) == 0
+        for eval_idx in range(0, len(jobs), num_eval_epochs + 1):
+            eval_jobs_batch = jobs[eval_idx: eval_idx + num_eval_epochs + 1]
+            print([j.job_name for j in eval_jobs_batch])
+            for job in eval_jobs_batch[1:]:
+                eval_jobs_batch[0].add_previous_job(job)
     # running the jobs
     manage(jobs, telegram_callback)
     print('All the jobs were executed')

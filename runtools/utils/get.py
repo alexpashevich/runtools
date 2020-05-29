@@ -15,7 +15,17 @@ def p_option(mode, machines):
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 1 AND 9 or cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 11 AND 22'
         elif machines == 'm':
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 21 AND 22'
-        return hosts + ' and gpumodel!=\'\"\'\"\'gtx1080\'\"\'\"\' and gpumem>10000'
+        elif machines == 'p':
+            hosts = 'gpumodel=\'\"\'\"\'p100\'\"\'\"\''
+        elif machines == 'x':
+            hosts = 'gpumodel=\'\"\'\"\'titan_x\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\''
+        elif machines == '11':
+            hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 11 AND 11'
+        elif machines == 'e':
+            hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost11\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
+        if machines not in ('p', 'x', 'e'):
+            hosts += ' and gpumodel!=\'\"\'\"\'gtx1080\'\"\'\"\' and gpumem>10000'
+        return hosts
     # old machines can not run tensorflow >1.5 and slow
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
@@ -160,27 +170,42 @@ def get_gridargs_list(grid):
         gridargs_list = new_gridargs_list
     return gridargs_list
 
+def append_to_lists(new_exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
+    new_exp_meta = deepcopy(old_exp_meta)
+    new_exp_meta['args'] = new_exp_args
+    new_exp_meta['full_command'] = old_exp_meta['full_command'].replace(old_exp_meta['args'], new_exp_meta['args'])
+    exp_name_list.append(new_exp_name)
+    args_list.append(new_exp_args)
+    exp_meta_list.append(new_exp_meta)
 
-def eval_exp_lists(exp_name_list, args_list, exp_meta_list, eval_interval, eval_seeds, eval_dir):
-    # deprecated, maybe delete later
-    eval_first_epoch, eval_last_epoch, eval_iter = eval_interval
-    exp_name_list_new, args_list_new, exp_meta_list_new = [], [], []
-    for exp_name, args, exp_meta in zip(exp_name_list, args_list, exp_meta_list):
-        assert exp_meta['script'] == 'rlons.scripts.collect'
-        # assert exp_meta['script'] == 'rlons.scripts.collect_demos'
-        for eval_seed in eval_seeds:
-            exp_name_seed = '{}_seed{}'.format(exp_name, eval_seed)
-            args_seed = append_args(
-                args, ['model.dir={}'.format(eval_dir.strip() % eval_seed)])
-            for eval_epoch in range(eval_first_epoch, eval_last_epoch, eval_iter):
-                args_seed_epoch = append_args(
-                    args_seed, ['collect.first_epoch={}'.format(eval_epoch),
-                                'collect.last_epoch={}'.format(eval_epoch + eval_iter)])
-                exp_meta_seed_epoch = deepcopy(exp_meta)
-                exp_meta_seed_epoch['args'] = args_seed_epoch
-                exp_name_list_new.append(exp_name_seed)
-                args_list_new.append(args_seed_epoch)
-                exp_meta_list_new.append(exp_meta_seed_epoch)
+def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_range, eval_task, eval_subgoal):
 
-    return exp_name_list_new, args_list_new, exp_meta_list_new
+    if eval_range is not None:
+        assert len(eval_range) in (2, 3)
+        eval_range = list(range(*eval_range))
+    exp_name_list, args_list, exp_meta_list = [], [], []
+    for exp_name, args, exp_meta in zip(exp_name_list_orig, args_list_orig, exp_meta_list_orig):
+        assert exp_meta['script'] == 'alfred.eval.eval_seq2seq'
+        # assert exp_meta['script'] == 'rlons.scripts.collect'
+        args = append_args(args, ['eval.exp={}'.format(exp_name)])
+        exp_name = 'eval_{}'.format(exp_name)
+        if eval_subgoal:
+            assert not eval_task
+            args = append_args(args, ['eval.subgoals=all'])
+        if eval_range is None:
+            append_to_lists(exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
+        else:
+            exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
+            for eval_epoch in eval_range:
+                # TODO: check if not eval_simple. maybe eval_simple == eval_range is None?
+                exp_name_epoch = '{}_m{}'.format(exp_name, eval_epoch)
+                args_epoch = append_args(
+                    deepcopy(args), ['eval.fast_eval=True', 'eval.checkpoint=model_{}.pth'.format(eval_epoch)])
+                append_to_lists(exp_name_epoch, args_epoch, exp_meta, exp_name_list_l, args_list_l, exp_meta_list_l)
+            args_best_epoch = append_args(deepcopy(args), ['eval.select_best=True'])
+            append_to_lists(exp_name, args_best_epoch, exp_meta, exp_name_list, args_list, exp_meta_list)
+            exp_name_list += exp_name_list_l
+            args_list += args_list_l
+            exp_meta_list += exp_meta_list_l
 
+    return exp_name_list, args_list, exp_meta_list

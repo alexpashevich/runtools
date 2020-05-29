@@ -10,7 +10,7 @@ import subprocess as sp
 from runtools.utils.python import cmd
 from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH, MODEL_LOG_PATH
 
-from rlons.utils import losses
+# from rlons.utils import losses
 
 MAX_LENGTH = 80
 
@@ -35,33 +35,38 @@ def getMachineSummary(machine, keywords):
                 job_name = job_name.split(',')[0]
         duration = (job.split(' R=')[0]).split(' ')[-1]
         job_list = [job_name, job_id, duration]
-        method_info_path = os.path.join(MODEL_LOG_PATH, job_name, 'method.json')
-        if os.path.exists(method_info_path):
-            method_info = json.load(open(method_info_path, 'r'))[-1]
-            stage = str(method_info['stage'])
+        info_path = os.path.join(MODEL_LOG_PATH, job_name, 'info.json')
+        if not os.path.exists(info_path):
+            info_path = info_path.replace(MODEL_LOG_PATH, os.environ['ALFRED_DATA'])
+        if os.path.exists(info_path):
+            info = json.load(open(info_path, 'r'))[-1]
+            stage = str(info['stage'])
             job_list.append(stage)
-            job_list.append(str(method_info['iteration']))
-            progress = method_info.get('progress', -1)
-            total = method_info.get('total', -1)
+            # TODO: temp fix
+            itr = info['epoch'] if 'epoch' in info else info['progress']
+            job_list.append(str(itr + 1))
+            progress = info.get('progress', -1)
+            total = info.get('total', -1)
             job_list.append('{}/{}'.format(progress, total))
-            if stage == 'net':
-                losses_stage = 'net'
-            elif 'value' in stage:
-                losses_stage = 'value_net'
-            elif 'heatmaps' in stage:
-                losses_stage = 'heatmaps_net'
-            else:
-                print('unknown stage {}'.format(stage))
-                assert False
-            best_losses = losses.get_best(job_name, losses_stage)[0]
-            best_losses_str = ''
-            for loss_key, loss_value in best_losses.items():
-                loss_key_short = ''.join([word.upper()[0] for word in loss_key.split('_')])
-                best_losses_str += '{0}: {1:.2f}, '.format(loss_key_short, loss_value)
-            if best_losses_str:
-                job_list.append(best_losses_str[:-2])
-            else:
-                job_list.append('n/a')
+            # if stage == 'net':
+            #     losses_stage = 'net'
+            # elif 'value' in stage:
+            #     losses_stage = 'value_net'
+            # elif 'heatmaps' in stage:
+            #     losses_stage = 'heatmaps_net'
+            # else:
+            #     print('unknown stage {}'.format(stage))
+            #     assert False
+            # best_losses = losses.get_best(job_name, losses_stage)[0]
+            # best_losses_str = ''
+            # for loss_key, loss_value in best_losses.items():
+            #     loss_key_short = ''.join([word.upper()[0] for word in loss_key.split('_')])
+            #     best_losses_str += '{0}: {1:.2f}, '.format(loss_key_short, loss_value)
+            # if best_losses_str:
+            #     job_list.append(best_losses_str[:-2])
+            # else:
+            #     job_list.append('n/a')
+            job_list.append('n/a')
         else:
             job_list.extend(['n/a'] * (len(keywords) - len(job_list)))
         machine_summary.append(job_list)
@@ -113,7 +118,7 @@ class Monitor:
 
         machines = [GPU_MACHINE, CPU_MACHINE]
         all_summaries = {machine: [] for machine in machines}
-        keywords = ['job_name', 'job_id', 'time', 'stage', 'itr', 'epoch', 'info']
+        keywords = ['job_name', 'job_id', 'time', 'stage', 'epoch', 'info']
         for machine in machines:
             all_summaries[machine] = getMachineSummary(machine, keywords)
 

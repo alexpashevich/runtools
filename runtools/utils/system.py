@@ -31,28 +31,25 @@ def checkout_repo(repo, commit_tag):
     print('checkouted {} to {}'.format(repo, commit_tag))
 
 
-def create_cache_dir(exp_name_list, cache_mode, git_commit_rlons, git_commit_mime):
+def create_cache_dir(exp_name_list, cache_mode, git_commit_alfred):
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
     assert cache_mode in ('keep', 'copy', 'link')
     if cache_mode == 'keep':
         if not os.path.exists(cache_dir) and not os.path.islink(cache_dir):
-            copy_code_dir(cache_dir, git_commit_rlons, git_commit_mime, sym_link=True)
+            copy_code_dir(cache_dir, git_commit_alfred, sym_link=True)
         return
 
-    copy_code_dir(
-        cache_dir, git_commit_rlons, git_commit_mime, sym_link=(cache_mode == 'link'))
+    copy_code_dir(cache_dir, git_commit_alfred, sym_link=(cache_mode == 'link'))
 
     # cache only the first exp directory, others are sym links to it
     for exp_id, exp_name in enumerate(exp_name_list[1:]):
         if exp_name not in exp_name_list[:1 + exp_id]:
             cache_dir = os.path.join(CACHEDIR_PATH, exp_name)
             copy_code_dir(
-                cache_dir, None, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
+                cache_dir, None, sym_link=True, sym_link_to_exp=exp_name_list[0])
 
 
-def copy_code_dir(
-        cache_dir, commit_rlons, commit_mime,
-        sym_link=False, sym_link_to_exp=None):
+def copy_code_dir(cache_dir, commit_alfred, sym_link=False, sym_link_to_exp=None):
     print('{} code to {}...'.format('Symlinking' if sym_link else 'Copying', cache_dir))
     if os.path.exists(cache_dir):
         if not os.path.islink(cache_dir):
@@ -73,7 +70,5 @@ def copy_code_dir(
         else:
             sym_link_to = os.path.join(CACHEDIR_PATH, sym_link_to_exp)
         os.symlink(sym_link_to, cache_dir)
-    if commit_rlons is not None:
-        checkout_repo(os.path.join(cache_dir, 'rlons'), commit_rlons)
-    if commit_mime is not None:
-        checkout_repo(os.path.join(cache_dir, 'mime'), commit_mime)
+    if commit_alfred is not None:
+        checkout_repo(os.path.join(cache_dir, 'alfred'), commit_alfred)

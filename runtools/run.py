@@ -22,7 +22,7 @@ def parse_config():
                         help='Seed to use.')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
-    parser.add_argument('-sc', '--script', default='rlons.scripts.train',
+    parser.add_argument('-sc', '--script', default='alfred.train.train_seq2seq',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('-g', '--grid', type=json.loads, default=None,
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
@@ -31,10 +31,8 @@ def parse_config():
     # what to do with the code
     parser.add_argument('-cm', '--cache_mode', default=None,
                         help='Cache mode, should be in {"keep", "link", "copy"}')
-    parser.add_argument('-gcr', '--git_commit_rlons', type=str, default=None,
-                        help='Git commit to checkout the RLonS repo to.')
-    parser.add_argument('-gcm', '--git_commit_mime', type=str, default=None,
-                        help='Git commit to checkout the mime repo to.')
+    parser.add_argument('-gca', '--git_commit_alfred', type=str, default=None,
+                        help='Git commit to checkout the ALFRED repo to.')
     # where to run them
     parser.add_argument('-m', '--mode', type=str, default='local',
                         help='One of $settings.ALLOWED_MODES (or the first letter).')
@@ -47,13 +45,16 @@ def parse_config():
                         help='Number of cores to be used on the cluster.')
     parser.add_argument('-w', '--wallclock', type=int, default=None,
                         help='Job wallclock time to be set on the cluster.')
-    # evaluation stuff (deprecated)
-    parser.add_argument('-ei', '--evaluation_interval', type=json.loads, default=None,
-                        help='[first_epoch, last_epoch, iter_epoch]')
-    parser.add_argument('-es', '--evaluation_seeds', type=json.loads, default=None,
-                        help='List of seeds to evaluate.')
-    parser.add_argument('-ed', '--evaluation_dir', type=str, default=None,
-                        help='Path to the eval dirs with %d instead of the seed number')
+    # evaluation stuff (new)
+    parser.add_argument('-et', '--eval_task', default=False, action='store_true',
+                        help='Wheather the job should evaluate ALFRED task success rate')
+    parser.add_argument('-esg', '--eval_subgoal', default=False, action='store_true',
+                        help='Wheather the job should evaluate ALFRED subgoals success rate')
+    # TODO: make a default value (to evaluate best_seen.pth e.g.)
+    parser.add_argument('-es', '--eval_simple', default=False, action='store_true',
+                        help='Evaluate only a single provided checkpoint.')
+    parser.add_argument('-er', '--eval_range', type=int, nargs='+', default=[3, 20, 2],
+                        help='first_epoch, last_epoch, (iter_epoch)')
     # misc
     parser.add_argument('-cj', '--consecutive_jobs', type=str, default=None, nargs='+',
                         help='Path to the eval dirs with %d instead of the seed number')
@@ -82,23 +83,23 @@ def main():
         num_exps *= np.prod([len(l) for l in config.grid.values()])
     exp_name_list, args_list, exp_meta_list = get.exp_lists(config, config.first_exp_id, num_exps)
 
-    if config.evaluation_seeds is not None:
-        assert config.evaluation_interval is not None
-        assert config.evaluation_dir is not None
-        assert len(config.evaluation_interval) == 3
+    if config.eval_task or config.eval_subgoal:
+        assert config.machines in ('f', 'e')
+        config.machines = 'e'
         exp_name_list, args_list, exp_meta_list = get.eval_exp_lists(
-            exp_name_list, args_list, exp_meta_list,
-            config.evaluation_interval, config.evaluation_seeds, config.evaluation_dir)
+            exp_name_list, args_list, exp_meta_list, config.eval_range, config.eval_task, config.eval_subgoal)
 
     if len(exp_name_list) > 1:
+        # on a local machine only a single job should be executed or several consecutive ones
         assert mode not in {'local', 'render'} or config.consecutive_jobs
     if config.consecutive_jobs:
+        # while launching consecutive jobs, we should provide parameters for all exps
         assert len(config.consecutive_jobs) == len(exp_name_list)
 
     cache_mode = get.cache_mode(
         config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
     system.create_cache_dir(
-        exp_name_list, cache_mode, config.git_commit_rlons, config.git_commit_mime)
+        exp_name_list, cache_mode, config.git_commit_alfred)
 
     # run the experiment(s)
     jobs_list = []
@@ -106,6 +107,7 @@ def main():
         script = exp_meta['script'] if exp_meta['script'] is not None else config.script
         job_mode, job_besteffort, job_num_cores = mode, config.besteffort, config.num_cores
         if config.consecutive_jobs:
+            # get cluster parameters of the current job
             job_mode, job_besteffort, job_num_cores = get.cluster_params(
                 config.consecutive_jobs[exp_id], mode, config.besteffort, config.num_cores)
         if job_mode in ('local', 'render'):

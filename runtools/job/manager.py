@@ -13,9 +13,7 @@ def manage(jobs, callback):
     # launch the jobs
     while_counter = 0
     # TODO: probably write an except/try here (e.g. if OAR does not respond)
-    while (jobs_waiting_previous_jobs or
-           jobs_waiting_max_default_jobs or
-           any([not job.job_ended for job in jobs])):
+    while (jobs_waiting_previous_jobs or jobs_waiting_max_default_jobs or any([not job.job_ended for job in jobs])):
         # runs waiting because of previous jobs
         selected_jobs = []
         for job in jobs_waiting_previous_jobs:
