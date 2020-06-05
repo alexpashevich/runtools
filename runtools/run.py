@@ -82,7 +82,7 @@ def main():
 
     if config.eval_type is not None:
         # the user is asking for evaluation
-        assert config.eval_type in ('task', 'subgoal', 'task-full', 'subgoal-full')
+        assert config.eval_type in ('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select')
         if mode == 'edgar':
             assert config.machines in ('f', 'e') # f is default, e is evaluation nodes
             config.machines = 'e'
@@ -114,18 +114,12 @@ def main():
             render = (job_mode == 'render')
             # TODO: add an option to enforce message sending in the local mode
             # send_report_message(exp_name, exp_meta, [config.seed], mode)
-            system.change_sys_path(system.get_sys_path_clean(), exp_name)
-            jobs.run_locally(
-                exp_name, args, script, config.files[0], config.seed, render, config.debug)
+            jobs.run_locally(exp_name, args, script, config.files[0], config.seed, render, config.debug)
         else:
             # prepare a job to run on INRIA cluster
             p_options = get.p_option(job_mode, config.machines)
             JobCluster = get.job(job_mode, p_options, job_besteffort, job_num_cores, config.wallclock)
-            first_seed = config.seed if config.seed is not None else 1
-            all_seeds = range(first_seed, first_seed + config.num_seeds)
-            for seed in all_seeds:
-                jobs_list.append(jobs.init_on_cluster(
-                    exp_name, args, script, exp_meta['args_file'], seed, config.num_seeds, JobCluster))
+            jobs_list.append(jobs.init_on_cluster(exp_name, args, script, exp_meta['args_file'], JobCluster))
     jobs.run_on_cluster(config, jobs_list, exp_name_list, exp_meta_list)
 
 

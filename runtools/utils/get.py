@@ -19,6 +19,8 @@ def p_option(mode, machines):
             hosts = 'gpumodel=\'\"\'\"\'p100\'\"\'\"\''
         elif machines == 'x':
             hosts = 'gpumodel=\'\"\'\"\'titan_x\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\''
+        elif machines == 'xp':
+            hosts = 'gpumodel=\'\"\'\"\'p100\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x\'\"\'\"\' or gpumodel=\'\"\'\"\'titan_x_pascal\'\"\'\"\''
         elif machines == '11':
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 11 AND 11'
         elif machines == 'e':
@@ -131,6 +133,10 @@ def exp_lists(config, first_exp_id, num_exps):
     if len(exp_names) == 1 and num_exps > 1:
         exp_names *= num_exps
     assert len(exp_files) == len(extra_args_list) and len(exp_files) == len(gridargs_list)
+
+    first_seed = config.seed if config.seed is not None else 1
+    all_seeds = range(first_seed, first_seed + config.num_seeds)
+
     exp_name_list, args_list, exp_meta_list = [], [], []
     for idx, (args_file, extra_args, gridargs) in enumerate(zip(exp_files, extra_args_list, gridargs_list)):
         args, exp_name, script = read_args(args_file)
@@ -141,14 +147,22 @@ def exp_lists(config, first_exp_id, num_exps):
         if gridargs_list[0] is not None:
             # TODO: check if this exp does not exist yet
             exp_name += '_v' + str(first_exp_id + idx)
-        exp_name_list.append(exp_name)
-        args_list.append(args)
-        exp_meta_list.append(
-            {'args_file': args_file,
-             'extra_args': append_args(gridargs if gridargs is not None else '', extra_args),
-             'script': script,
-             'args': args,
-             'full_command': 'python3 -m {} {}'.format(script, args)})
+        for seed in all_seeds:
+            exp_name_cur, args_cur = deepcopy(exp_name), deepcopy(args)
+            if 'train' in script:
+                # TODO: what to do with other alfred scripts?
+                args_cur = append_args(args_cur, ['train.seed={}'.format(seed)])
+                if config.num_seeds > 1:
+                    exp_name_cur += '_s{}'.format(seed)
+
+            exp_name_list.append(exp_name_cur)
+            args_list.append(args_cur)
+            exp_meta_list.append(
+                {'args_file': args_file,
+                'extra_args': append_args(gridargs if gridargs is not None else '', extra_args),
+                'script': script,
+                'args': args_cur,
+                'full_command': 'python3 -m {} {}'.format(script, args_cur)})
     return exp_name_list, args_list, exp_meta_list
 
 
@@ -191,7 +205,9 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
         exp_name = 'eval_{}'.format(exp_name)
         if 'subgoal' in eval_type:
             args = append_args(args, ['eval.subgoals=all'])
-        if 'full' not in eval_type:
+        if '-select' in eval_type:
+            args = append_args(args, ['eval.select_best=True'])
+        if '-full' not in eval_type:
             append_to_lists(exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
         else:
             exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
