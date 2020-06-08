@@ -1,9 +1,10 @@
 import os
 import time
+import json
 
 from random import randint
 from runtools.utils.python import cmd
-from runtools.settings import OAR_SCRIPT_PATH, OAR_LOG_PATH
+from runtools.settings import OAR_SCRIPT_PATH, OAR_LOG_PATH, LOGIN
 
 
 class JobMeta(object):
@@ -22,9 +23,15 @@ class JobMeta(object):
         self.librairies_to_install = []
         self.previous_jobs = []  # type: list[JobMeta]
         # Internal settings (do not override these field)
-        self.job_crashed = False
         self.job_id = None
         self.script_filename_key = None
+        # check whether the job was stuck. if yes, relaunch it automatically (with a manager)
+        self.progress_dict = {
+            'report_path': None, # path to info.json of the job
+            'max_wait_time': 1e10, # amount of seconds we can wait maximum for progress increase
+            'reported_amount': -1, # last seen job progress (from info.json)
+            'reported_time': None, # timestamp when last seen job progress was read
+        }
 
     def run(self):
         """
@@ -33,12 +40,7 @@ class JobMeta(object):
                 -A bash script is generated
                 -A job is launched to process the bash script we just generated
         """
-        # check if previous jobs have crashed or not
-        for job in self.previous_jobs:
-            if job.job_crashed:
-                self.job_crashed = True
-                break
-        if not self.job_crashed:
+        if not self.is_crashed:
             # run a job with oarsub (its job_id is retrieved)
             print(self.oarsub_command)
             success = False
@@ -52,6 +54,14 @@ class JobMeta(object):
                     print('Can not connect to {}, retrying in 10 sec...'.format(self.machine_name))
                     time.sleep(10)
 
+    def kill(self):
+        success = False
+        while not success:
+            try:
+                cmd("ssh -X -Y " + self.machine_name + " ' oardel {} ' ".format(self.job_id))
+                success = True
+            except:
+                pass
 
     def add_previous_job(self, job):
         assert job not in self.previous_jobs
@@ -64,37 +74,6 @@ class JobMeta(object):
             if os.path.islink(stdfile_link):
                 os.unlink(stdfile_link)
             os.symlink(stdfile, stdfile_link)
-
-    @property
-    def job_ended(self):
-        # TODO: this is the place where I will see if a job crashed or not. But this function will be called often
-        # the job has crashed thus it has ended
-        if self.job_crashed:
-            print('Job {} has crashed'.format(self.job_id))
-            ended = True
-        # the job has not been started
-        elif self.job_id is None:
-            ended = False
-        # the job has been launched, we check if it is still running
-        else:
-            try:
-                ended = True
-                oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
-                for line in oarstat_lines:
-                    if self.job_id in line:
-                        ended = False
-                        break
-            except:
-                # we don't really know since we can not connect to the cluster
-                ended = False
-        return ended
-
-    @property
-    def previous_jobs_ended(self):
-        for job in self.previous_jobs:
-            if not job.job_ended:
-                return False
-        return True
 
     """ Management of the bash script, that are fed to oarsub """
 
@@ -153,7 +132,6 @@ class JobMeta(object):
         that's the reason I decided to use a random number to define the key
         :return: a string specifying the path to the bash script
         """
-        # TODO: Put the date also in the filename
         if self.script_filename_key is None:
             # initializing the script_filename_key
             self.script_filename_key = 0
@@ -204,9 +182,83 @@ class JobMeta(object):
     def oarsub_l_options(self):
         return []
 
-    """ Management of the monitoring """
+    """ Job status """
+
+    @property
+    def is_running(self):
+        try:
+            oarstat_lines = cmd("ssh -X -Y {} ' oarstat -u {}' ".format(self.machine_name, LOGIN))
+            for line in oarstat_lines:
+                if self.job_id in line:
+                    status_line = line.split(LOGIN)[0].replace(self.job_id, '').strip()
+                    if 'R' in status_line:
+                        return True
+        except:
+            # we don't really know since we can not connect to the cluster
+            pass
+        return False
+
+    @property
+    def is_stuck(self):
+        if not self.is_running:
+            # the job is not running on the cluster so it is not stuck
+            self.progress_dict['reported_amount'] = -1
+            return False
+        if self.progress_dict['report_path'] and os.path.exists(self.progress_dict['report_path']):
+            try:
+                job_info = json.load(open(self.progress_dict['report_path'], 'r'))[-1]
+                job_progress = job_info['progress']
+                time_now = time.time()
+                if job_progress > self.progress_dict['reported_amount']:
+                    self.progress_dict['reported_amount'] = job_progress
+                    self.progress_dict['reported_time'] = time_now
+                elif time_now - self.progress_dict['reported_time'] > self.progress_dict['max_wait_time']:
+                    self.progress_dict['reported_amount'] = -1
+                    return True
+            except:
+                pass
+        return False
+
+    @property
+    def is_crashed(self):
+        # TODO: maybe implement later
+        # check if previous jobs have crashed or not
+        return any([job.is_crashed for job in self.previous_jobs])
+
+    @property
+    def is_completed(self):
+        if self.is_crashed:
+            # the job (or previous jobs) has (have) crashed thus it WAS completed
+            print('Job {} has crashed'.format(self.job_id))
+            return True
+        if self.job_id is None:
+            # the job has not been started this it WAS NOT completed
+            return False
+        # the job has been launched, we the script file still exists (should be deleted at the end of the job)
+        if os.path.exists(self.script_filename):
+            return False
+        # completed = True
+        # # the job has been launched, we check if it is still running (and thus not completed)
+        # try:
+        #     oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
+        #     for line in oarstat_lines:
+        #         if self.job_id in line:
+        #             completed = False
+        #             break
+        # except:
+        #     # we don't really know since we can not connect to the cluster
+        #     completed = False
+        return True
+
+    @property
+    def is_ready_to_start(self):
+        for job in self.previous_jobs:
+            if not job.is_completed:
+                return False
+        return True
 
     def job_study(self):
+        raise DeprecationWarning
         # Job study
         # check if job ended well (i.e., script should have deleted itself)
         # TODO: check if in  a killed besteffort, that the script is not deleted
@@ -217,9 +269,3 @@ class JobMeta(object):
             self.job_crashed = True
         else:
             self.job_done = True
-            # final monitoring
-            # self.monitoring()
-            # TODO Philippe lui copie les fichier OAR a une destination correspond au model que l on a en entraine,
-            # TODO proposer surement l empalcement du fichier ou le fichier doit etre copie
-            # TODO in the process let the path to the OAR files to come back process them again if needed
-            # self.path_exe_parse()

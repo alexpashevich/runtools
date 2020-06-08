@@ -31,7 +31,15 @@ SCRIPT_TO_LOGDIR = {
     'rlons.scripts.train': 'train.model.name',
     'rlons.scripts.eval': 'train.model.name',
     'rlons.scripts.method': 'train.model.name',
-    'rlons.scripts.sim2real': 'train.model.name'}
+    'rlons.scripts.sim2real': 'train.model.name'
+}
 
 USED_CODE_DIRS = ('alfred', )
 ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar')
+
+SCRIPT_TO_PROGRESS_WAIT_TIME = {
+    'alfred.train.train_seq2seq': 3*60*60, # 3 hours
+    # 'alfred.train.train_seq2seq': 10, # 10 sec (for debug)
+    'alfred.eval.eval_seq2seq': 20*60, # 10 minutes
+    'alfred.gen.scripts.augment_trajectories': 10*60, # 10 minuties
+}

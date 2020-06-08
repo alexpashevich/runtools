@@ -42,31 +42,9 @@ def getMachineSummary(machine, keywords):
             info = json.load(open(info_path, 'r'))[-1]
             stage = str(info['stage'])
             job_list.append(stage)
-            # TODO: temp fix
-            itr = info['epoch'] if 'epoch' in info else info['progress']
-            job_list.append(str(itr + 1))
             progress = info.get('progress', -1)
             total = info.get('total', -1)
             job_list.append('{}/{}'.format(progress, total))
-            # if stage == 'net':
-            #     losses_stage = 'net'
-            # elif 'value' in stage:
-            #     losses_stage = 'value_net'
-            # elif 'heatmaps' in stage:
-            #     losses_stage = 'heatmaps_net'
-            # else:
-            #     print('unknown stage {}'.format(stage))
-            #     assert False
-            # best_losses = losses.get_best(job_name, losses_stage)[0]
-            # best_losses_str = ''
-            # for loss_key, loss_value in best_losses.items():
-            #     loss_key_short = ''.join([word.upper()[0] for word in loss_key.split('_')])
-            #     best_losses_str += '{0}: {1:.2f}, '.format(loss_key_short, loss_value)
-            # if best_losses_str:
-            #     job_list.append(best_losses_str[:-2])
-            # else:
-            #     job_list.append('n/a')
-            job_list.append('n/a')
         else:
             job_list.extend(['n/a'] * (len(keywords) - len(job_list)))
         machine_summary.append(job_list)
@@ -118,7 +96,7 @@ class Monitor:
 
         machines = [GPU_MACHINE, CPU_MACHINE]
         all_summaries = {machine: [] for machine in machines}
-        keywords = ['job_name', 'job_id', 'time', 'stage', 'epoch', 'info']
+        keywords = ['job_name', 'job_id', 'time', 'stage', 'done']
         for machine in machines:
             all_summaries[machine] = getMachineSummary(machine, keywords)
 
@@ -154,7 +132,6 @@ class Monitor:
                 self.outputLines += ['No jobs running', '\n']
         self.nOutputLines = len(self.outputLines)
         self.lastSummariesUpdate = time.time()
-        # TODO: check
         if self.topLineNum > self.nOutputLines:
             self.topLineNum = self.nOutputLines // curses.LINES * curses.LINES
 

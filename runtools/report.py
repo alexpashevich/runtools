@@ -11,7 +11,7 @@ def get_args():
     # experiments to load results from
     parser.add_argument('exps', type=str, nargs='+')
     # whether to look for a subgoals evaluation (by default task evaluation)
-    parser.add_argument('--subgoals', '-sg', action='store_true', default=False)
+    parser.add_argument('--task', '-t', action='store_true', default=False)
     args = parser.parse_args()
     return args
 
@@ -19,7 +19,7 @@ def get_args():
 def main():
     args = get_args()
 
-    prefix = 'task' if not args.subgoals else 'subgoal'
+    prefix = 'task' if args.task else 'subgoal'
     exp_results = {}
     for exp_path in args.exps:
         eval_jsons = sorted(glob.glob(os.path.join(exp_path, '{}_results*.json'.format(prefix))))
@@ -29,7 +29,7 @@ def main():
                 eval_name = eval_json.split('task_results_')[-1]
                 exp_name = eval_json.split('/')[-2]
                 print('Loaded evaluation from {}'.format(eval_json))
-                if not args.subgoals:
+                if args.task:
                     gc_sr = results['all']['goal_condition_success']['goal_condition_success_rate']
                     task_sr = results['all']['success']['success_rate']
                     # print(colored("Exp %s: SR = %.1f%%, GC = %.1f%%" % (

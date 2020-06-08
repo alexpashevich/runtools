@@ -7,7 +7,7 @@ from runtools.job.manager import manage
 STATUS_WAITING = 1
 STATUS_LAUNCHED = 2
 STATUS_CRASHED = 3
-STATUS_DONE = 4
+STATUS_COMPLETED = 4
 
 
 def run_locally(exp_name, args, script, args_file, seed, render, debug):
@@ -45,12 +45,7 @@ def init_on_cluster(exp_name, args, script, args_file, job_class):
 
 def run_on_cluster(config, jobs, exp_names, exp_metas):
     jobs_status = [0] * len(jobs)
-    def telegram_callback(jobs_all, jobs_waiting, counter, print_every=20):
-        # report that the manager is still waiting for some jobs
-        if counter % print_every == 0:
-            jobs_ids_to_finish = [[j.job_id for j in job.previous_jobs] for job in jobs_waiting]
-            print('{} job(s) is(are) waiting {} jobs to finish'.format(
-                len(jobs_waiting), set(sum(jobs_ids_to_finish, []))))
+    def telegram_callback(jobs_all):
         # send messages to telegram
         for idx, job in enumerate(jobs_all):
             report_message = ''
@@ -62,14 +57,14 @@ def run_on_cluster(config, jobs, exp_names, exp_metas):
                 report_message = 'launched job `{0}`\n```details = {1}```'.format(
                     exp_names[idx], exp_metas[idx])
                 jobs_status[idx] = STATUS_LAUNCHED
-            elif job.job_crashed and jobs_status[idx] < STATUS_CRASHED:
+            elif job.is_crashed and jobs_status[idx] < STATUS_CRASHED:
                 report_message = 'job `{0}` has crashed'.format(
                     exp_names[idx], exp_metas[idx])
                 jobs_status[idx] = STATUS_CRASHED
-            elif job.job_ended and jobs_status[idx] < STATUS_DONE:
+            elif job.is_completed and jobs_status[idx] < STATUS_COMPLETED:
                 report_message = 'job `{0}` has finished successfully'.format(
                     exp_names[idx], exp_metas[idx])
-                jobs_status[idx] = STATUS_DONE
+                jobs_status[idx] = STATUS_COMPLETED
             if len(report_message) > 0:
                 try:
                     telegram_send.send(messages=[report_message])

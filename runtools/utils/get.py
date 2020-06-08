@@ -1,8 +1,9 @@
+import os
 import collections
 from copy import deepcopy
 
 from runtools.job.machine import JobGPU, JobCPU
-from runtools.settings import ALLOWED_MODES, SCRIPTS_PATH
+from runtools.settings import ALLOWED_MODES, SCRIPTS_PATH, SCRIPT_TO_PROGRESS_WAIT_TIME, MODEL_LOG_PATH
 from runtools.utils.config import read_args, append_args
 
 
@@ -87,6 +88,14 @@ def job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
             self.interpreter = ''
             self.besteffort = besteffort
             self.own_p_options = [parent_job(self).own_p_options[0] + p_options]
+            job_script = run_argv[1]
+            if job_script in SCRIPT_TO_PROGRESS_WAIT_TIME:
+                if 'scripts.augment_trajectories' not in job_script:
+                    job_log_dir = os.environ['ALFRED_LOGS']
+                else:
+                    job_log_dir = os.environ['ALFRED_DATA']
+                self.progress_dict['report_path'] = os.path.join(job_log_dir, self.job_name, 'info.json')
+                self.progress_dict['max_wait_time'] = SCRIPT_TO_PROGRESS_WAIT_TIME[job_script]
         @property
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
@@ -212,7 +221,7 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
         else:
             exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
             for eval_epoch in eval_epochs:
-                exp_name_epoch = '{}_m{}'.format(exp_name, eval_epoch)
+                exp_name_epoch = '{}_m{:02d}'.format(exp_name, eval_epoch)
                 args_epoch = append_args(
                     deepcopy(args), ['eval.fast_eval=True', 'eval.checkpoint=model_{}.pth'.format(eval_epoch)])
                 append_to_lists(exp_name_epoch, args_epoch, exp_meta, exp_name_list_l, args_list_l, exp_meta_list_l)
