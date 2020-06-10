@@ -49,7 +49,8 @@ def parse_config():
                         help='Job wallclock time to be set on the cluster.')
     # evaluation stuff (new)
     parser.add_argument('-et', '--eval_type', type=str, default=None,
-                        help='Type of alfred evaluation: task, subgoal, task-full, subgoal-full')
+                        choices=('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select'),
+                        help='Type of alfred evaluation')
     parser.add_argument('-er', '--eval_full_range', type=int, nargs='+', default=[3, 20, 2],
                         help='first_epoch, last_epoch, (iter_epoch)')
     # misc
@@ -82,7 +83,6 @@ def main():
 
     if config.eval_type is not None:
         # the user is asking for evaluation
-        assert config.eval_type in ('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select')
         if mode == 'edgar':
             assert config.machines in ('f', 'e') # f is default, e is evaluation nodes
             config.machines = 'e'

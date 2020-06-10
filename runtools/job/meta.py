@@ -1,37 +1,37 @@
 import os
 import time
 import json
+import socket
 
 from random import randint
 from runtools.utils.python import cmd
-from runtools.settings import OAR_SCRIPT_PATH, OAR_LOG_PATH, LOGIN
+from runtools.settings import OAR_SCRIPT_PATH, OAR_LOG_PATH, LOGIN, JobStatus, MAX_TIMES_RESTART_CRASHED_JOB
 
 
 class JobMeta(object):
     def __init__(self, run_argv):
         self.run_argv = run_argv
         # Organization settings
-        self.job_name = None
-        self.oarstat_check_frequency = 15
+        self.name = None
+        self.job_id = None
+        self.script_filename_key = None
+        self._status = JobStatus.WAITING_PREVIOUS
         # Job settings
         self.machine_name = None
         self.besteffort = False
-        self.priority_level = 1
         self.interpreter = 'python'
         self.global_path_project = None
         self.local_path_exe = None
         self.librairies_to_install = []
         self.previous_jobs = []  # type: list[JobMeta]
-        # Internal settings (do not override these field)
-        self.job_id = None
-        self.script_filename_key = None
-        # check whether the job was stuck. if yes, relaunch it automatically (with a manager)
-        self.progress_dict = {
-            'report_path': None, # path to info.json of the job
+        # internal pameters to control job restarting (with a manager)
+        self.info_settings = {
+            'info_path': None, # path to info.json of the job
             'max_wait_time': 1e10, # amount of seconds we can wait maximum for progress increase
             'reported_amount': -1, # last seen job progress (from info.json)
             'reported_time': None, # timestamp when last seen job progress was read
         }
+        self.was_restarted_times = 0
 
     def run(self):
         """
@@ -40,28 +40,46 @@ class JobMeta(object):
                 -A bash script is generated
                 -A job is launched to process the bash script we just generated
         """
-        if not self.is_crashed:
-            # run a job with oarsub (its job_id is retrieved)
-            print(self.oarsub_command)
-            success = False
-            while not success:
-                try:
-                    self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
-                    self.link_std()
-                    print('JOB_ID = {}\n\n\n'.format(self.job_id))
-                    success = True
-                except:
-                    print('Can not connect to {}, retrying in 10 sec...'.format(self.machine_name))
-                    time.sleep(10)
-
-    def kill(self):
-        success = False
-        while not success:
+        # run a job with oarsub (its job_id is retrieved)
+        print('Scheduling job {}'.format(self.name))
+        print(self.oarsub_command)
+        assert self._status == JobStatus.READY_TO_START
+        while True:
             try:
-                cmd("ssh -X -Y " + self.machine_name + " ' oardel {} ' ".format(self.job_id))
-                success = True
+                self.job_id = cmd(self.oarsub_command)[-1].split('=')[-1]
+                self.link_std()
+                print('JOB_ID = {}\n\n\n'.format(self.job_id))
+                self._status = JobStatus.SCHEDULED
+                break
             except:
-                pass
+                print('Can not connect to {}, retrying in 10 sec...'.format(self.machine_name))
+                time.sleep(10)
+
+    def kill_stuck(self):
+        print('Killing stuck job {}'.format(self.name))
+        assert self._status == JobStatus.STUCK
+        while True:
+            try:
+                oardel_command = 'oardel {}'.format(self.job_id)
+                if socket.gethostname() != self.machine_name:
+                    oardel_command = "ssh {} ' {} ' ".format(self.machine_name, oardel_command)
+                cmd(oardel_command)
+                self._status = JobStatus.READY_TO_START
+                break
+            except:
+                print('Can not connect to {}, retrying in 10 sec...'.format(self.machine_name))
+                time.sleep(10)
+
+    def restart_crashed(self):
+        print('Restarting crashed job {}'.format(self.name))
+        assert self._status == JobStatus.CRASHED
+        if self.was_restarted_times < MAX_TIMES_RESTART_CRASHED_JOB:
+            self.was_restarted_times += 1
+            self._status = JobStatus.READY_TO_START
+        else:
+            print('Job {} was restarted {} times, will not do it anymore'.format(
+                self.name, self.was_restarted_times))
+            self._status = JobStatus.DONE_FAILURE
 
     def add_previous_job(self, job):
         assert job not in self.previous_jobs
@@ -110,13 +128,13 @@ class JobMeta(object):
 
     @property
     def oarsub_dirname(self):
-        assert self.job_name is not None
-        return os.path.join(OAR_LOG_PATH, self.job_name)
+        assert self.name is not None
+        return os.path.join(OAR_LOG_PATH, self.name)
 
     @property
     def script_dirname(self):
-        assert self.job_name is not None
-        return os.path.join(OAR_SCRIPT_PATH, self.job_name)
+        assert self.name is not None
+        return os.path.join(OAR_SCRIPT_PATH, self.name)
 
     @property
     def get_script_filename(self):
@@ -143,12 +161,14 @@ class JobMeta(object):
 
     @property
     def oarsub_command(self):
+        # make sure that the command will be executed via ssh
+        assert socket.gethostname() != self.machine_name
         # Connect to the appropriate machine
         command = "ssh " + self.machine_name + " ' oarsub "
         # Add the running options for oarsub
         command += self.oarsub_options
         # Naming the job
-        command += ' --name="' + self.job_name + '"'
+        command += ' --name="' + self.name + '"'
         # Build the oarsub directory
         if not os.path.exists(self.oarsub_dirname):
             os.makedirs(self.oarsub_dirname)
@@ -184,88 +204,97 @@ class JobMeta(object):
 
     """ Job status """
 
-    @property
-    def is_running(self):
+    def info(self):
+        if self.info_settings['info_path'] and os.path.exists(self.info_settings['info_path']):
+            try:
+                job_info = json.load(open(self.info_settings['info_path'], 'r'))[-1]
+                return job_info
+            except:
+                pass
+        return None
+
+    def oar_status(self):
         try:
-            oarstat_lines = cmd("ssh -X -Y {} ' oarstat -u {}' ".format(self.machine_name, LOGIN))
+            oarstat_command = 'oarstat -u {}'.format(LOGIN)
+            if socket.gethostname() != self.machine_name:
+                oarstat_command = "ssh {} ' {} ' ".format(self.machine_name, oarstat_command)
+            oarstat_lines = cmd(oarstat_command)
             for line in oarstat_lines:
                 if self.job_id in line:
                     status_line = line.split(LOGIN)[0].replace(self.job_id, '').strip()
-                    if 'R' in status_line:
-                        return True
+                    return status_line
         except:
             # we don't really know since we can not connect to the cluster
             pass
-        return False
+        return ''
 
-    @property
-    def is_stuck(self):
-        if not self.is_running:
-            # the job is not running on the cluster so it is not stuck
-            self.progress_dict['reported_amount'] = -1
-            return False
-        if self.progress_dict['report_path'] and os.path.exists(self.progress_dict['report_path']):
-            try:
-                job_info = json.load(open(self.progress_dict['report_path'], 'r'))[-1]
-                job_progress = job_info['progress']
-                time_now = time.time()
-                if job_progress > self.progress_dict['reported_amount']:
-                    self.progress_dict['reported_amount'] = job_progress
-                    self.progress_dict['reported_time'] = time_now
-                elif time_now - self.progress_dict['reported_time'] > self.progress_dict['max_wait_time']:
-                    self.progress_dict['reported_amount'] = -1
-                    return True
-            except:
+    def status(self):
+        if self._status == JobStatus.WAITING_PREVIOUS:
+            previous_jobs_status = [job.status for job in self.previous_jobs]
+            if all([job_status == JobStatus.DONE_SUCCESS for job_status in previous_jobs_status]):
+                # if all previous jobs have successfully finished, the current job is ready to be launched
+                self._status = JobStatus.READY_TO_START
+            elif any([job_status == JobStatus.DONE_FAILURE for job_status in previous_jobs_status]):
+                # if any of previous jobs has not terminated successfully, the current job can not be launched
+                self._status = JobStatus.DONE_FAILURE
+        elif self._status == JobStatus.READY_TO_START:
+            # the current job is waiting to be launched
+            pass
+        elif self._status == JobStatus.SCHEDULED:
+            # the current job is waiting its turn in OAR scheduling system
+            if self.oar_status() == 'R':
+                # zero the progress amount to make sure that job is not killed right after it is launched
+                self.info_settings['reported_amount'] = -1
+                self._status = JobStatus.RUNNING
+            else:
+                # in theory, the OAR status should be 'W', 'L' or ''
                 pass
-        return False
 
-    @property
-    def is_crashed(self):
-        # TODO: maybe implement later
-        # check if previous jobs have crashed or not
-        return any([job.is_crashed for job in self.previous_jobs])
+        elif self._status == JobStatus.RUNNING:
+            # the current job is running on the cluster
+            if self.oar_status() != 'R':
+                # zero the progress amount to make sure that job is not killed right after it is launched
+                self.info_settings['reported_amount'] = -1
+                self._status = JobStatus.SCHEDULED
+            else:
+                # self.script_filename should be erased at the end of job script, check if it still exists
+                job_has_terminated = not os.path.exists(self.script_filename)
+                # read info.json of the job with job progress status
+                job_info = self.info()
+                if job_info:
+                    if job_has_terminated:
+                        # the job has terminated so it has either crashed or completed
+                        if job_info['progress'] >= job_info['total']:
+                            self._status = JobStatus.DONE_SUCCESS
+                        elif job_info['progress'] == 0:
+                            # the job has terminated without any progress, probably it means that the code is corrput
+                            self._status = JobStatus.DONE_FAILURE
+                        else:
+                            # the job has crashed after making some progress, maybe we will restart it later
+                            self._status = JobStatus.CRASHED
+                    else:
+                        # check if the job has stuck
+                        time_now = time.time()
+                        if job_info['progress'] > self.info_settings['reported_amount']:
+                            self.info_settings['reported_amount'] = job_info['progress']
+                            self.info_settings['reported_time'] = time_now
+                        elif time_now - self.info_settings['reported_time'] > self.info_settings['max_wait_time']:
+                            self.info_settings['reported_amount'] = -1
+                            self._status = JobStatus.STUCK
+                elif job_has_terminated:
+                    # info.json was not created but the job has terminated
+                    self._status = JobStatus.CRASHED
 
-    @property
-    def is_completed(self):
-        if self.is_crashed:
-            # the job (or previous jobs) has (have) crashed thus it WAS completed
-            print('Job {} has crashed'.format(self.job_id))
-            return True
-        if self.job_id is None:
-            # the job has not been started this it WAS NOT completed
-            return False
-        # the job has been launched, we the script file still exists (should be deleted at the end of the job)
-        if os.path.exists(self.script_filename):
-            return False
-        # completed = True
-        # # the job has been launched, we check if it is still running (and thus not completed)
-        # try:
-        #     oarstat_lines = cmd("ssh -X -Y " + self.machine_name + " ' oarstat ' ")
-        #     for line in oarstat_lines:
-        #         if self.job_id in line:
-        #             completed = False
-        #             break
-        # except:
-        #     # we don't really know since we can not connect to the cluster
-        #     completed = False
-        return True
-
-    @property
-    def is_ready_to_start(self):
-        for job in self.previous_jobs:
-            if not job.is_completed:
-                return False
-        return True
-
-    def job_study(self):
-        raise DeprecationWarning
-        # Job study
-        # check if job ended well (i.e., script should have deleted itself)
-        # TODO: check if in  a killed besteffort, that the script is not deleted
-        if os.path.exists(self.script_filename):
-            # delete the bash script
-            cmd('rm ' + self.script_filename)
-            # declare job as crashed to avoid running following jobs
-            self.job_crashed = True
-        else:
-            self.job_done = True
+        elif self._status == JobStatus.STUCK:
+            # the current job is stuck, it should be restarted in an outer function
+            pass
+        elif self._status == JobStatus.CRASHED:
+            # the current job has crashed, nothing to be done here
+            pass
+        elif self._status == JobStatus.DONE_FAILURE:
+            # the current job has completely crashed, nothing to be done here
+            pass
+        elif self._status == JobStatus.DONE_SUCCESS:
+            # the current job has successfully completed, nothing to be done here
+            pass
+        return self._status

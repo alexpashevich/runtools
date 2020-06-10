@@ -2,50 +2,45 @@ import time
 import numpy as np
 
 from runtools.utils.python import cmd
-from runtools.settings import LOGIN, MAX_DEFAULT_CORES, MAX_BESTEFFORT_CORES
+from runtools.settings import LOGIN, MAX_TIMES_RESTART_CRASHED_JOB, JobStatus
 
 """ Class of functions that take a list of JobMeta as input """
 
 
-def manage(jobs_all, telegram_callback):
-    jobs_names = [job.job_name for job in jobs_all]
-    jobs_waiting = jobs_all.copy()  # type: list[JobMeta]
-    jobs_running = []
+def manage(jobs_list, telegram_callback):
+    # jobs_list.sort(key=lambda x: x.name)
     # create the job scripts
-    for job in jobs_all:
+    for job in jobs_list:
         job.generate_script()
+    all_jobs_are_done = False
 
-    # launch the jobs
-    # while (jobs_waiting or any([not job.is_completed for job in jobs])):
-    while (jobs_waiting or jobs_running):
-        # select jobs to run
-        selected_jobs = []
-        for job in jobs_waiting:
-            if job.is_ready_to_start:
-                selected_jobs.append(job)
-                jobs_waiting.remove(job)
-        # run jobs w.r.t. their priority
-        selected_jobs.sort(key=lambda x: x.priority_level, reverse=True)
-        for job in selected_jobs:
-            job.run()
-            jobs_running.append(job)
-        telegram_callback(jobs_all)
+    # keep scheduling the jobs until all have status DONE_SUCCESS or DONE_FAILURE
+    while not all_jobs_are_done:
+        # check status of jobs and maybe (re)launch some of them
+        for job in jobs_list:
+            job_status = job.status()
+            if job_status == JobStatus.READY_TO_START:
+                # schedule the job and set status to SCHEDULED
+                job.run()
+            elif job_status == JobStatus.STUCK:
+                # kill and set status to READY_TO_START
+                job.kill_stuck()
+            elif job_status == JobStatus.CRASHED:
+                # maybe set status to READY_TO_START
+                job.restart_crashed()
+            if job_status in (JobStatus.WAITING_PREVIOUS,
+                              JobStatus.SCHEDULED,
+                              JobStatus.RUNNING,
+                              JobStatus.DONE_FAILURE,
+                              JobStatus.DONE_SUCCESS):
+                # do nothing
+                pass
 
         # some sleeping between each loop
         time.sleep(1)
-        # check which jobs were already completed
-        for job in jobs_running.copy():
-            if job.is_completed:
-                jobs_running.remove(job)
-        # check which jobs were stuck
-        for job in jobs_running.copy():
-            if job.is_stuck:
-                print('Job {} was stuck, will relaunch it'.format(job.job_name))
-                job.kill()
-                jobs_waiting.append(job)
-                jobs_running.remove(job)
+        all_jobs_are_done = all([j._status in (JobStatus.DONE_SUCCESS, JobStatus.DONE_FAILURE) for j in jobs_list])
+        telegram_callback(jobs_list)
 
-    # report the last time (if needed)
-    telegram_callback(jobs_all)
-    print('All the jobs were finished:')
-    print(jobs_names)
+    print('All the jobs were completed')
+    for job in jobs_list:
+        print('Job {} with status {}'.format(job.name, job._status))

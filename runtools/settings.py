@@ -1,4 +1,5 @@
 import os
+import enum
 
 # Personnal settings
 LOGIN = 'apashevi'
@@ -37,9 +38,22 @@ SCRIPT_TO_LOGDIR = {
 USED_CODE_DIRS = ('alfred', )
 ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar')
 
+# settings to control jobs restarting (if they are crashed or not making progress)
 SCRIPT_TO_PROGRESS_WAIT_TIME = {
     'alfred.train.train_seq2seq': 3*60*60, # 3 hours
     # 'alfred.train.train_seq2seq': 10, # 10 sec (for debug)
     'alfred.eval.eval_seq2seq': 20*60, # 10 minutes
     'alfred.gen.scripts.augment_trajectories': 10*60, # 10 minuties
 }
+MAX_TIMES_RESTART_CRASHED_JOB = 3
+
+
+class JobStatus(enum.Enum):
+   WAITING_PREVIOUS = 0
+   READY_TO_START = 1
+   SCHEDULED = 2
+   RUNNING = 3
+   STUCK = 4
+   CRASHED = 5
+   DONE_FAILURE = 6
+   DONE_SUCCESS = 7

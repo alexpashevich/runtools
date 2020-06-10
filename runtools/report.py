@@ -12,6 +12,7 @@ def get_args():
     parser.add_argument('exps', type=str, nargs='+')
     # whether to look for a subgoals evaluation (by default task evaluation)
     parser.add_argument('--task', '-t', action='store_true', default=False)
+    parser.add_argument('--select_only', '-so', action='store_true', default=False)
     args = parser.parse_args()
     return args
 
@@ -22,7 +23,8 @@ def main():
     prefix = 'task' if args.task else 'subgoal'
     exp_results = {}
     for exp_path in args.exps:
-        eval_jsons = sorted(glob.glob(os.path.join(exp_path, '{}_results*.json'.format(prefix))))
+        jsons_regexp = '{}_results*{}.json'.format(prefix, ':select' if args.select_only else '')
+        eval_jsons = sorted(glob.glob(os.path.join(exp_path, jsons_regexp)))
         for eval_json in eval_jsons:
             try:
                 results = json.load(open(eval_json))['results']

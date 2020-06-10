@@ -84,7 +84,7 @@ def job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
             parent_job.__init__(self, run_argv)
             self.global_path_project = SCRIPTS_PATH
             self.local_path_exe = 'run_with_pytorch.sh'
-            self.job_name = run_argv[0]
+            self.name = run_argv[0]
             self.interpreter = ''
             self.besteffort = besteffort
             self.own_p_options = [parent_job(self).own_p_options[0] + p_options]
@@ -94,8 +94,8 @@ def job(cluster, p_options, besteffort=False, nb_cores=8, wallclock=None):
                     job_log_dir = os.environ['ALFRED_LOGS']
                 else:
                     job_log_dir = os.environ['ALFRED_DATA']
-                self.progress_dict['report_path'] = os.path.join(job_log_dir, self.job_name, 'info.json')
-                self.progress_dict['max_wait_time'] = SCRIPT_TO_PROGRESS_WAIT_TIME[job_script]
+                self.info_settings['info_path'] = os.path.join(job_log_dir, self.name, 'info.json')
+                self.info_settings['max_wait_time'] = SCRIPT_TO_PROGRESS_WAIT_TIME[job_script]
         @property
         def oarsub_l_options(self):
             return parent_job(self).oarsub_l_options + l_options
@@ -193,10 +193,23 @@ def get_gridargs_list(grid):
         gridargs_list = new_gridargs_list
     return gridargs_list
 
-def append_to_lists(new_exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
+def append_to_lists(exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
     new_exp_meta = deepcopy(old_exp_meta)
     new_exp_meta['args'] = new_exp_args
     new_exp_meta['full_command'] = old_exp_meta['full_command'].replace(old_exp_meta['args'], new_exp_meta['args'])
+    new_exp_name = 'eval_{}'.format(exp_name)
+    if 'eval.subgoals=all' in new_exp_args:
+        new_exp_name += '_subgoal'
+    if 'eval.select_best=True' in new_exp_args:
+        new_exp_name += '_select'
+    if 'eval.checkpoint=model_' in new_exp_args:
+        eval_epoch = int(new_exp_args.split('eval.checkpoint=model_')[1].split('.pth')[0])
+        new_exp_name += '_m{:02d}'.format(eval_epoch)
+    if 'eval.fast_eval=True' in new_exp_args:
+        new_exp_name += '_fast'
+    if 'eval.eval_split=' in new_exp_args:
+        eval_split = new_exp_args.split('eval.eval_split=')[1].split(' ')[0]
+        new_exp_name += '_{}'.format(eval_split)
     exp_name_list.append(new_exp_name)
     args_list.append(new_exp_args)
     exp_meta_list.append(new_exp_meta)
@@ -211,7 +224,6 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
         assert exp_meta['script'] == 'alfred.eval.eval_seq2seq'
         # assert exp_meta['script'] == 'rlons.scripts.collect'
         args = append_args(args, ['eval.exp={}'.format(exp_name)])
-        exp_name = 'eval_{}'.format(exp_name)
         if 'subgoal' in eval_type:
             args = append_args(args, ['eval.subgoals=all'])
         if '-select' in eval_type:
@@ -221,12 +233,11 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
         else:
             exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
             for eval_epoch in eval_epochs:
-                exp_name_epoch = '{}_m{:02d}'.format(exp_name, eval_epoch)
                 args_epoch = append_args(
-                    deepcopy(args), ['eval.fast_eval=True', 'eval.checkpoint=model_{}.pth'.format(eval_epoch)])
-                append_to_lists(exp_name_epoch, args_epoch, exp_meta, exp_name_list_l, args_list_l, exp_meta_list_l)
-            args_best_epoch = append_args(deepcopy(args), ['eval.select_best=True'])
-            append_to_lists(exp_name, args_best_epoch, exp_meta, exp_name_list, args_list, exp_meta_list)
+                    deepcopy(args), ['eval.fast_eval=True', 'eval.checkpoint=model_{:02d}.pth'.format(eval_epoch)])
+                append_to_lists(exp_name, args_epoch, exp_meta, exp_name_list_l, args_list_l, exp_meta_list_l)
+            args_select_epoch = append_args(deepcopy(args), ['eval.select_best=True'])
+            append_to_lists(exp_name, args_select_epoch, exp_meta, exp_name_list, args_list, exp_meta_list)
             exp_name_list += exp_name_list_l
             args_list += args_list_l
             exp_meta_list += exp_meta_list_l

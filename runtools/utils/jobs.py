@@ -3,11 +3,7 @@ import telegram_send
 
 from runtools.utils import config, system
 from runtools.job.manager import manage
-
-STATUS_WAITING = 1
-STATUS_LAUNCHED = 2
-STATUS_CRASHED = 3
-STATUS_COMPLETED = 4
+from runtools.settings import JobStatus
 
 
 def run_locally(exp_name, args, script, args_file, seed, render, debug):
@@ -44,33 +40,38 @@ def init_on_cluster(exp_name, args, script, args_file, job_class):
 
 
 def run_on_cluster(config, jobs, exp_names, exp_metas):
-    jobs_status = [0] * len(jobs)
-    def telegram_callback(jobs_all):
+    reports = [-1] * len(jobs)
+    def telegram_callback(jobs_list):
         # send messages to telegram
-        for idx, job in enumerate(jobs_all):
+        for job_idx, job in enumerate(jobs_list):
             report_message = ''
-            if job.job_id is None and job.previous_jobs and jobs_status[idx] < STATUS_WAITING:
-                report_message = 'job `{0}` is waiting\n```details = {1}```'.format(
-                    exp_names[idx], exp_metas[idx])
-                jobs_status[idx] = STATUS_WAITING
-            elif job.job_id is not None and jobs_status[idx] < STATUS_LAUNCHED:
-                report_message = 'launched job `{0}`\n```details = {1}```'.format(
-                    exp_names[idx], exp_metas[idx])
-                jobs_status[idx] = STATUS_LAUNCHED
-            elif job.is_crashed and jobs_status[idx] < STATUS_CRASHED:
-                report_message = 'job `{0}` has crashed'.format(
-                    exp_names[idx], exp_metas[idx])
-                jobs_status[idx] = STATUS_CRASHED
-            elif job.is_completed and jobs_status[idx] < STATUS_COMPLETED:
-                report_message = 'job `{0}` has finished successfully'.format(
-                    exp_names[idx], exp_metas[idx])
-                jobs_status[idx] = STATUS_COMPLETED
+            if job._status == JobStatus.WAITING_PREVIOUS and reports[job_idx] != JobStatus.WAITING_PREVIOUS:
+                report_message = 'job `{0}` is waiting for previous jobs\n```details = {1}```'.format(
+                    exp_names[job_idx], exp_metas[job_idx])
+                reports[job_idx] = JobStatus.WAITING_PREVIOUS
+            elif job._status in (JobStatus.SCHEDULED, JobStatus.RUNNING) and reports[job_idx] != JobStatus.RUNNING:
+                report_message = 'job `{0}` was scheduled\n```details = {1}```'.format(
+                    exp_names[job_idx], exp_metas[job_idx])
+                reports[job_idx] = JobStatus.RUNNING
+            elif job._status == JobStatus.STUCK and reports[job_idx] != JobStatus.STUCK:
+                report_message = 'job `{0}` got stuck'.format(exp_names[job_idx])
+                reports[job_idx] = JobStatus.STUCK
+            elif job._status == JobStatus.CRASHED and reports[job_idx] != JobStatus.CRASHED:
+                report_message = 'job `{0}` has crashed'.format(exp_names[job_idx])
+                reports[job_idx] = JobStatus.CRASHED
+            elif job._status == JobStatus.DONE_SUCCESS and reports[job_idx] != JobStatus.DONE_SUCCESS:
+                report_message = 'job `{0}` has finished successfully'.format(exp_names[job_idx])
+                reports[job_idx] = JobStatus.DONE_SUCCESS
+            elif job._status == JobStatus.DONE_FAILURE and reports[job_idx] != JobStatus.DONE_FAILURE:
+                report_message = 'job `{0}` has finished with a failure'.format(exp_names[job_idx])
+                reports[job_idx] = JobStatus.DONE_FAILURE
             if len(report_message) > 0:
                 try:
                     telegram_send.send(messages=[report_message])
                 except:
                     # TODO: why? not running this code locally anymore
                     pass
+
     if len(jobs) == 0:
         return
     if config.consecutive_jobs:
@@ -86,6 +87,6 @@ def run_on_cluster(config, jobs, exp_names, exp_metas):
             eval_jobs_batch = jobs[eval_idx: eval_idx + num_eval_epochs + 1]
             for job in eval_jobs_batch[1:]:
                 eval_jobs_batch[0].add_previous_job(job)
-    # running the jobs
+
+    # run the jobs with a manager loop
     manage(jobs, telegram_callback)
-    print('All the jobs were executed')
