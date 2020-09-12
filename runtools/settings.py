@@ -9,8 +9,6 @@ HOME = '/home/apashevi'
 LOGDIR_PATH = os.path.join(HOME, 'Logs')
 OAR_LOG_PATH = os.path.join(LOGDIR_PATH, 'oarsub')
 OAR_SCRIPT_PATH = os.path.join(LOGDIR_PATH, 'script')
-# MODEL_LOG_PATH = os.path.join(LOGDIR_PATH, 'agents')
-MODEL_LOG_PATH = os.path.join(LOGDIR_PATH, 'alfred')
 CODEDIR_PATH = os.path.join(HOME, 'Code')
 CACHEDIR_PATH = os.path.join(HOME, 'Cache')
 SCRIPTS_PATH = os.path.join(HOME, 'Scripts')
@@ -28,6 +26,9 @@ SCRIPT_TO_LOGDIR = {
     'alfred.train.train_seq2seq': 'exp.name',
     'alfred.eval.eval_seq2seq': 'exp.name',
     'alfred.gen.scripts.augment_trajectories': 'args.data_to',
+    'contrastive.howto100m.train': 'exp.name',
+    'detection.train': 'args.model_name',
+    'detection.data.create': 'args.name',
     'rlons.scripts.collect': 'collect.folder',
     'rlons.scripts.train': 'train.model.name',
     'rlons.scripts.eval': 'train.model.name',
@@ -35,7 +36,7 @@ SCRIPT_TO_LOGDIR = {
     'rlons.scripts.sim2real': 'train.model.name'
 }
 
-USED_CODE_DIRS = ('alfred', )
+USED_CODE_DIRS = ('alfred', 'alftools')
 ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar')
 
 # settings to control jobs restarting (if they are crashed or not making progress)

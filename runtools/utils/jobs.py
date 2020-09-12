@@ -45,25 +45,27 @@ def run_on_cluster(config, jobs, exp_names, exp_metas):
         # send messages to telegram
         for job_idx, job in enumerate(jobs_list):
             report_message = ''
+            job_info = job.info()
+            progress_str = 'N/A' if job_info is None else '{}/{}'.format(job_info['progress'], job_info['total'])
             if job._status == JobStatus.WAITING_PREVIOUS and reports[job_idx] != JobStatus.WAITING_PREVIOUS:
-                report_message = 'job `{0}` is waiting for previous jobs\n```details = {1}```'.format(
+                report_message = 'job `{}` is waiting for previous jobs\n```details = {}```'.format(
                     exp_names[job_idx], exp_metas[job_idx])
                 reports[job_idx] = JobStatus.WAITING_PREVIOUS
             elif job._status in (JobStatus.SCHEDULED, JobStatus.RUNNING) and reports[job_idx] != JobStatus.RUNNING:
-                report_message = 'job `{0}` was scheduled\n```details = {1}```'.format(
+                report_message = 'job `{}` was scheduled\n```details = {}```'.format(
                     exp_names[job_idx], exp_metas[job_idx])
                 reports[job_idx] = JobStatus.RUNNING
             elif job._status == JobStatus.STUCK and reports[job_idx] != JobStatus.STUCK:
-                report_message = 'job `{0}` got stuck'.format(exp_names[job_idx])
+                report_message = 'job `{}` got stuck after {}'.format(exp_names[job_idx], progress_str)
                 reports[job_idx] = JobStatus.STUCK
             elif job._status == JobStatus.CRASHED and reports[job_idx] != JobStatus.CRASHED:
-                report_message = 'job `{0}` has crashed'.format(exp_names[job_idx])
+                report_message = 'job `{}` has crashed after {}'.format(exp_names[job_idx], progress_str)
                 reports[job_idx] = JobStatus.CRASHED
             elif job._status == JobStatus.DONE_SUCCESS and reports[job_idx] != JobStatus.DONE_SUCCESS:
-                report_message = 'job `{0}` has finished successfully'.format(exp_names[job_idx])
+                report_message = 'job `{}` has finished successfully: {}'.format(exp_names[job_idx], progress_str)
                 reports[job_idx] = JobStatus.DONE_SUCCESS
             elif job._status == JobStatus.DONE_FAILURE and reports[job_idx] != JobStatus.DONE_FAILURE:
-                report_message = 'job `{0}` has finished with a failure'.format(exp_names[job_idx])
+                report_message = 'job `{}` has finished with a failure: {}'.format(exp_names[job_idx], progress_str)
                 reports[job_idx] = JobStatus.DONE_FAILURE
             if len(report_message) > 0:
                 try:

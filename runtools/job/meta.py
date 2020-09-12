@@ -230,7 +230,7 @@ class JobMeta(object):
 
     def status(self):
         if self._status == JobStatus.WAITING_PREVIOUS:
-            previous_jobs_status = [job.status for job in self.previous_jobs]
+            previous_jobs_status = [job.status() for job in self.previous_jobs]
             if all([job_status == JobStatus.DONE_SUCCESS for job_status in previous_jobs_status]):
                 # if all previous jobs have successfully finished, the current job is ready to be launched
                 self._status = JobStatus.READY_TO_START
@@ -252,7 +252,8 @@ class JobMeta(object):
 
         elif self._status == JobStatus.RUNNING:
             # the current job is running on the cluster
-            if self.oar_status() != 'R':
+            oar_status = self.oar_status()
+            if oar_status == 'W':
                 # zero the progress amount to make sure that job is not killed right after it is launched
                 self.info_settings['reported_amount'] = -1
                 self._status = JobStatus.SCHEDULED

@@ -3,7 +3,7 @@ import collections
 from copy import deepcopy
 
 from runtools.job.machine import JobGPU, JobCPU
-from runtools.settings import ALLOWED_MODES, SCRIPTS_PATH, SCRIPT_TO_PROGRESS_WAIT_TIME, MODEL_LOG_PATH
+from runtools.settings import ALLOWED_MODES, SCRIPTS_PATH, SCRIPT_TO_PROGRESS_WAIT_TIME
 from runtools.utils.config import read_args, append_args
 
 
@@ -25,7 +25,10 @@ def p_option(mode, machines):
         elif machines == '11':
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 11 AND 11'
         elif machines == 'e':
-            hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost11\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
+            # TODO: uncomment
+            # hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost11\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
+            # hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
+            hosts = 'host=\'\"\'\"\'gpuhost11\'\"\'\"\''
         if machines not in ('p', 'x', 'e'):
             hosts += ' and gpumodel!=\'\"\'\"\'gtx1080\'\"\'\"\' and gpumem>10000'
         return hosts
@@ -158,8 +161,7 @@ def exp_lists(config, first_exp_id, num_exps):
             exp_name += '_v' + str(first_exp_id + idx)
         for seed in all_seeds:
             exp_name_cur, args_cur = deepcopy(exp_name), deepcopy(args)
-            if 'train' in script:
-                # TODO: what to do with other alfred scripts?
+            if 'alfred.train.train_seq2seq' in script:
                 args_cur = append_args(args_cur, ['train.seed={}'.format(seed)])
                 if config.num_seeds > 1:
                     exp_name_cur += '_s{}'.format(seed)
@@ -179,7 +181,7 @@ def get_gridargs_list(grid):
     if not grid:
         return [None]
     gridargs_list = ['']
-    grid_dict = collections.OrderedDict(sorted(grid.items()))
+    grid_dict = collections.OrderedDict(sorted(grid.items(), reverse=True))
     for key, value_list in grid_dict.items():
         assert isinstance(value_list, (list, tuple))
         new_gridargs_list = []

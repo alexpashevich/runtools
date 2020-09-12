@@ -5,7 +5,7 @@ import json
 import subprocess as sp
 
 from runtools.utils.python import cmd
-from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH, MODEL_LOG_PATH
+from runtools.settings import LOGIN, CPU_MACHINE, GPU_MACHINE, OAR_LOG_PATH
 
 MAX_LENGTH = 80
 
@@ -32,9 +32,9 @@ def get_machine_summary(machine, keywords):
                 job_name = job_name.split(',')[0]
         duration = (job.split(' R=')[0]).split(' ')[-1]
         job_list = [job_name, job_id, duration]
-        info_path = os.path.join(MODEL_LOG_PATH, job_name, 'info.json')
+        info_path = os.path.join(os.environ['ALFRED_LOGS'], job_name, 'info.json')
         if not os.path.exists(info_path):
-            info_path = info_path.replace(MODEL_LOG_PATH, os.environ['ALFRED_DATA'])
+            info_path = os.path.join(os.environ['ALFRED_DATA'], job_name, 'info.json')
         if os.path.exists(info_path):
             info = json.load(open(info_path, 'r'))[-1]
             stage = str(info['stage'])
