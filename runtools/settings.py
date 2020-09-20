@@ -2,10 +2,10 @@ import os
 import enum
 
 # Personnal settings
-LOGIN = 'apashevi'
+LOGIN = 'pashevich'
 
 # PATH settings
-HOME = '/home/apashevi'
+HOME = '/home/pashevich'
 LOGDIR_PATH = os.path.join(HOME, 'Logs')
 OAR_LOG_PATH = os.path.join(LOGDIR_PATH, 'oarsub')
 OAR_SCRIPT_PATH = os.path.join(LOGDIR_PATH, 'script')
@@ -25,8 +25,10 @@ MAX_BESTEFFORT_CORES = {GPU_MACHINE: 1000, SHARED_CPU_MACHINE: 100000}
 SCRIPT_TO_LOGDIR = {
     'alfred.train.train_seq2seq': 'exp.name',
     'alfred.eval.eval_seq2seq': 'exp.name',
+    'alfred.data.create_data': 'args.data_output',
     'alfred.gen.scripts.augment_trajectories': 'args.data_to',
     'contrastive.howto100m.train': 'exp.name',
+    'contrastive.create_data': 'args.data_output',
     'detection.train': 'args.model_name',
     'detection.data.create': 'args.name',
     'rlons.scripts.collect': 'collect.folder',
@@ -37,7 +39,7 @@ SCRIPT_TO_LOGDIR = {
 }
 
 USED_CODE_DIRS = ('alfred', 'alftools')
-ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar')
+ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar', 'gcp')
 
 # settings to control jobs restarting (if they are crashed or not making progress)
 SCRIPT_TO_PROGRESS_WAIT_TIME = {

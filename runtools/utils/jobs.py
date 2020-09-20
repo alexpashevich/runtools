@@ -6,7 +6,7 @@ from runtools.job.manager import manage
 from runtools.settings import JobStatus
 
 
-def run_locally(exp_name, args, script, args_file, seed, render, debug):
+def run_locally(exp_name, args, script, args_file, seed, render, debug, cuda_devices, run_async=False):
     # log dir creation
     if 'collect' in script and seed is not None:
         args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
@@ -14,6 +14,10 @@ def run_locally(exp_name, args, script, args_file, seed, render, debug):
     python_path = system.get_python_path(exp_name)
     args = config.append_log_dir(args, exp_name, args_file, script)
     script = 'PYTHONPATH={} python3 -u -m {} {}'.format(python_path, script, args)
+    if cuda_devices is not None:
+        script = 'CUDA_VISIBLE_DEVICES={} {}'.format(cuda_devices, script)
+        if 'alfred.eval' in script and cuda_devices.isdigit():
+            script += ' eval.x_display={}'.format(cuda_devices)
     # if render and 'collect' in script:
     #     script += ' collect.env.render=True'
     if debug:

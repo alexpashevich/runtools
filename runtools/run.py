@@ -41,6 +41,8 @@ def parse_config():
     parser.add_argument('-ma', '--machines', type=str, default='f',
                         help='Which machines to use on the clusters, ' \
                         'the choice should be in {"s", "f"} (slow/gpu24-27 or fast/gpu1-22).')
+    parser.add_argument('-di', '--cuda_devices', type=str, default=None,
+                        help='Which GPU(s) to use.')
     parser.add_argument('-b', '--besteffort', default=False, action='store_true',
                         help='Whether to run in besteffort mode')
     parser.add_argument('-nc', '--num_cores', type=int, default=8,
@@ -49,7 +51,7 @@ def parse_config():
                         help='Job wallclock time to be set on the cluster.')
     # evaluation stuff (new)
     parser.add_argument('-et', '--eval_type', type=str, default=None,
-                        choices=('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select'),
+                        choices=('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select', 'task-find', 'subgoal-find'),
                         help='Type of alfred evaluation')
     parser.add_argument('-er', '--eval_full_range', type=int, nargs='+', default=[3, 20, 2],
                         help='first_epoch, last_epoch, (iter_epoch)')
@@ -89,9 +91,9 @@ def main():
         exp_name_list, args_list, exp_meta_list = get.eval_exp_lists(
             exp_name_list, args_list, exp_meta_list, config.eval_type, config.eval_full_range)
 
-    if len(exp_name_list) > 1:
-        # on a local machine only a single job should be executed or several consecutive ones
-        assert mode not in {'local', 'render'} or config.consecutive_jobs
+    # if len(exp_name_list) > 1:
+    #     # on a local machine only a single job should be executed or several consecutive ones
+    #     assert mode not in {'local', 'render'} or config.consecutive_jobs
     if config.consecutive_jobs:
         # while launching consecutive jobs, we should provide parameters for all exps
         assert len(config.consecutive_jobs) == len(exp_name_list)
@@ -99,8 +101,18 @@ def main():
     cache_mode = get.cache_mode(config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
     system.create_cache_dir(exp_name_list, cache_mode, config.git_commit_alfred, config.sym_link_to_exp)
 
+    # to make sure that eval-select is launched after all eval-fasts
+    if mode in ('local', 'render') and config.eval_type is not None:
+        exp_name_list, args_list, exp_meta_lsit = reversed(exp_name_list), reversed(args_list), reversed(exp_meta_list)
+        # exp_name_list = list(exp_name_list)[:-1]
+        # args_list = list(args_list)[:-1]
+        # exp_meta_list = list(exp_meta_list)[:-1]
+
     # run the experiment(s)
     jobs_list = []
+    # if config.cuda_devices is None and mode == 'gcp':
+    #     import torch
+    #     config.cuda_devices = list(range(0, torch.cuda.device_count()))
     for exp_id, (exp_name, args, exp_meta) in enumerate(zip(exp_name_list, args_list, exp_meta_list)):
         script = exp_meta['script'] if exp_meta['script'] is not None else config.script
         job_mode, job_besteffort, job_num_cores = mode, config.besteffort, config.num_cores
@@ -110,11 +122,21 @@ def main():
                 config.consecutive_jobs[exp_id], mode, config.besteffort, config.num_cores)
         if job_mode in ('local', 'render'):
             # run locally
-            assert len(exp_name_list) == 1
+            # assert len(exp_name_list) == 1
             render = (job_mode == 'render')
             # TODO: add an option to enforce message sending in the local mode
             # send_report_message(exp_name, exp_meta, [config.seed], mode)
-            jobs.run_locally(exp_name, args, script, config.files[0], config.seed, render, config.debug)
+            # cuda_device = config.cuda_devices[0] if isinstance(config.cuda_devices, list) else None
+            jobs.run_locally(
+                exp_name, args, script, config.files[0], config.seed,
+                render, config.debug, config.cuda_devices)
+        # elif job_mode == 'gcp':
+        #     assert isinstance(config.cuda_devices, list)
+        #     cuda_device = config.cuda_devices[exp_id % len(exp_name_list)]
+        #     jobs.run_locally(
+        #         exp_name, args, script, config.files[0], config.seed,
+        #         False, config.debug, cuda_device, run_async=True)
+
         else:
             # prepare a job to run on INRIA cluster
             p_options = get.p_option(job_mode, config.machines)
