@@ -19,6 +19,7 @@ def get_python_path(exp_name):
 def checkout_repo(repo, commit_tag):
     from git import Git
     g = Git(repo)
+    g.checkout('.')
     g.checkout(commit_tag)
     print('checkouted {} to {}'.format(repo, commit_tag))
 
