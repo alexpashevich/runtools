@@ -22,7 +22,7 @@ def parse_config():
                         help='Seed to use.')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
-    parser.add_argument('-sc', '--script', default='alfred.train.train_seq2seq',
+    parser.add_argument('-sc', '--script', default='alfred.train.run',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('-g', '--grid', type=json.loads, default=None,
                         help='Dictionary with grid of hyperparameters to run experiments with. ' \
@@ -50,21 +50,23 @@ def parse_config():
     parser.add_argument('-w', '--wallclock', type=int, default=None,
                         help='Job wallclock time to be set on the cluster.')
     # evaluation stuff (new)
-    parser.add_argument('-et', '--eval_type', type=str, default=None,
-                        choices=('task', 'subgoal', 'task-full', 'subgoal-full', 'task-select', 'subgoal-select', 'task-find', 'subgoal-find'),
+    parser.add_argument('-et', '--eval_type', type=str, default=None, choices=(
+        'task', 'task-select', 'task-fasts', 'task-find',
+        'subgoal', 'subgoal-select', 'subgoal-fasts', 'subgoal-find'),
                         help='Type of alfred evaluation')
-    parser.add_argument('-er', '--eval_full_range', type=int, nargs='+', default=[3, 20, 2],
-                        help='first_epoch, last_epoch, (iter_epoch)')
     # misc
     parser.add_argument('-cj', '--consecutive_jobs', type=str, default=None, nargs='+',
                         help='Path to the eval dirs with %d instead of the seed number')
     # the CJ args are passed in the normal format
     # but we need to screen them with a random characters so that argparse does not try to read them
     # an example: -cj '# -m a -b' '$ -m a -nc 32'
-    parser.add_argument('-d', '--debug', default=False, action='store_true',
-                        help='Whether to run the code in the main thread (debug mode)')
     parser.add_argument('-sl', '--sleep', type=int, default=None,
                         help='Whether to sleep before running the code')
+    # debug flags
+    parser.add_argument('-d', '--debug', default=False, action='store_true',
+                        help='Whether to run the code in the main thread (debug mode)')
+    parser.add_argument('-f', '--fast_epoch', default=False, action='store_true',
+                        help='Whether to run the code in the fast epoch (debug) mode')
     return parser.parse_args()
 
 
@@ -89,31 +91,27 @@ def main():
             assert config.machines in ('f', 'e') # f is default, e is evaluation nodes
             config.machines = 'e'
         exp_name_list, args_list, exp_meta_list = get.eval_exp_lists(
-            exp_name_list, args_list, exp_meta_list, config.eval_type, config.eval_full_range)
+            exp_name_list, args_list, exp_meta_list, config.eval_type)
 
-    # if len(exp_name_list) > 1:
-    #     # on a local machine only a single job should be executed or several consecutive ones
-    #     assert mode not in {'local', 'render'} or config.consecutive_jobs
     if config.consecutive_jobs:
         # while launching consecutive jobs, we should provide parameters for all exps
         assert len(config.consecutive_jobs) == len(exp_name_list)
 
-    cache_mode = get.cache_mode(config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
-    system.create_cache_dir(exp_name_list, cache_mode, config.git_commit_alfred, config.sym_link_to_exp)
+    cache_mode = get.cache_mode(
+        config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
+    system.create_cache_dir(
+        exp_name_list, cache_mode, config.git_commit_alfred, config.sym_link_to_exp)
 
     # to make sure that eval-select is launched after all eval-fasts
     if mode in ('local', 'render') and config.eval_type is not None:
-        exp_name_list, args_list, exp_meta_lsit = reversed(exp_name_list), reversed(args_list), reversed(exp_meta_list)
-        # exp_name_list = list(exp_name_list)[:-1]
-        # args_list = list(args_list)[:-1]
-        # exp_meta_list = list(exp_meta_list)[:-1]
+        exp_name_list = reversed(exp_name_list)
+        args_list = reversed(args_list)
+        exp_meta_lsit = reversed(exp_meta_list)
 
     # run the experiment(s)
     jobs_list = []
-    # if config.cuda_devices is None and mode == 'gcp':
-    #     import torch
-    #     config.cuda_devices = list(range(0, torch.cuda.device_count()))
-    for exp_id, (exp_name, args, exp_meta) in enumerate(zip(exp_name_list, args_list, exp_meta_list)):
+    for exp_id, (exp_name, args, exp_meta) in enumerate(
+            zip(exp_name_list, args_list, exp_meta_list)):
         script = exp_meta['script'] if exp_meta['script'] is not None else config.script
         job_mode, job_besteffort, job_num_cores = mode, config.besteffort, config.num_cores
         if config.consecutive_jobs:
@@ -129,7 +127,7 @@ def main():
             # cuda_device = config.cuda_devices[0] if isinstance(config.cuda_devices, list) else None
             jobs.run_locally(
                 exp_name, args, script, config.files[0], config.seed,
-                render, config.debug, config.cuda_devices)
+                render, config.debug, config.fast_epoch, config.cuda_devices)
         # elif job_mode == 'gcp':
         #     assert isinstance(config.cuda_devices, list)
         #     cuda_device = config.cuda_devices[exp_id % len(exp_name_list)]

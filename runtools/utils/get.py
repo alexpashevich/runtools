@@ -62,10 +62,13 @@ def cache_mode(config, on_cluster):
     # default cache_mode is copy: remove the cache_code dir and copy the current code dir there
     if config.cache_mode is not None:
         return config.cache_mode
-    if not on_cluster:
-        cache_mode = 'link'
-    elif on_cluster:
-        cache_mode = 'copy'
+    if config.fast_epoch:
+        return 'link'
+    cache_mode = 'copy'
+    # if not on_cluster:
+    #     cache_mode = 'link'
+    # elif on_cluster:
+    #     cache_mode = 'copy'
     return cache_mode
 
 
@@ -162,7 +165,7 @@ def exp_lists(config, first_exp_id, num_exps):
             exp_name += '_v' + str(first_exp_id + idx)
         for seed in all_seeds:
             exp_name_cur, args_cur = deepcopy(exp_name), deepcopy(args)
-            if 'alfred.train.train_seq2seq' in script:
+            if 'alfred.train.run' in script:
                 args_cur = append_args(args_cur, ['train.seed={}'.format(seed)])
                 if config.seed is not None:
                     exp_name_cur += '_s{}'.format(seed)
@@ -199,66 +202,53 @@ def get_gridargs_list(grid):
 def append_to_lists(exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
     new_exp_meta = deepcopy(old_exp_meta)
     new_exp_meta['args'] = new_exp_args
-    new_exp_meta['full_command'] = old_exp_meta['full_command'].replace(old_exp_meta['args'], new_exp_meta['args'])
+    new_exp_meta['full_command'] = old_exp_meta['full_command'].replace(
+        old_exp_meta['args'], new_exp_meta['args'])
     new_exp_name = 'eval/{}'.format(exp_name)
-    if 'eval.subgoals=all' in new_exp_args:
-        new_exp_name += '_subgoal'
-    if 'eval.eval_type=select_best' in new_exp_args:
-        new_exp_name += '_select'
-    if 'eval.checkpoint=model_' in new_exp_args:
-        eval_epoch = int(new_exp_args.split('eval.checkpoint=model_')[1].split('.pth')[0])
-        new_exp_name += '_m{:02d}'.format(eval_epoch)
-    if 'eval.eval_type=fast_eval' in new_exp_args:
-        new_exp_name += '_fast'
-    if 'eval.eval_split=' in new_exp_args:
-        eval_split = new_exp_args.split('eval.eval_split=')[1].split(' ')[0]
-        new_exp_name += '_{}'.format(eval_split)
+    # if 'eval.subgoals=all' in new_exp_args:
+    #     new_exp_name += '_subgoal'
+    # if 'eval.eval_type=select_best' in new_exp_args:
+    #     new_exp_name += '_select'
+    # if 'eval.checkpoint=model_' in new_exp_args:
+    #     eval_epoch = int(new_exp_args.split('eval.checkpoint=model_')[1].split('.pth')[0])
+    #     new_exp_name += '_m{:02d}'.format(eval_epoch)
+    # if 'eval.eval_type=fast_eval' in new_exp_args:
+    #     new_exp_name += '_fast'
+    # if 'eval.eval_split=' in new_exp_args:
+    #     eval_split = new_exp_args.split('eval.eval_split=')[1].split(' ')[0]
+    #     new_exp_name += '_{}'.format(eval_split)
     exp_name_list.append(new_exp_name)
     args_list.append(new_exp_args)
     exp_meta_list.append(new_exp_meta)
 
-def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_type, eval_full_range):
-    if 'full' in eval_type:
-        assert len(eval_full_range) in (2, 3)
-        eval_epochs = list(range(*eval_full_range))
-
+def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_type):
     exp_name_list, args_list, exp_meta_list = [], [], []
-    for exp_name, args, exp_meta in zip(exp_name_list_orig, args_list_orig, exp_meta_list_orig):
+    for exp_name, args, exp_meta in zip(
+            exp_name_list_orig, args_list_orig, exp_meta_list_orig):
         assert exp_meta['script'] == 'alfred.eval.eval_seq2seq'
-        # assert exp_meta['script'] == 'rlons.scripts.collect'
         args = append_args(args, ['eval.exp={}'.format(exp_name)])
         if 'subgoal' in eval_type:
+            # subgoal evaluation
             args = append_args(args, ['eval.subgoals=all'])
-        if '-select' in eval_type:
-            args = append_args(args, ['eval.eval_type=select_best'])
-        # TODO: write better ifs
-        if '-full' not in eval_type and '-find' not in eval_type:
-            append_to_lists(exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
-        elif '-find' in eval_type:
-            # append_to_lists(exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
+        if '-find' in eval_type:
+            # do fast_evals (with a single job) and eval the best one afterwards
             args_select = append_args(deepcopy(args), ['eval.eval_type=select_best'])
-            append_to_lists(exp_name, args_select, exp_meta, exp_name_list, args_list, exp_meta_list)
+            append_to_lists(
+                exp_name, args_select, exp_meta, exp_name_list, args_list, exp_meta_list)
             args_find = append_args(deepcopy(args), ['eval.eval_type=find_best'])
-            append_to_lists(exp_name, args_find, exp_meta, exp_name_list, args_list, exp_meta_list)
+            append_to_lists(
+                exp_name, args_find, exp_meta, exp_name_list, args_list, exp_meta_list)
+        elif '-select' in eval_type:
+            # fast_evals were already done, we need to eval the best one only
+            args_select = append_args(deepcopy(args), ['eval.eval_type=select_best'])
+            append_to_lists(
+                exp_name, args_select, exp_meta, exp_name_list, args_list, exp_meta_list)
+        elif '-fasts' in eval_type:
+            # we should do fast_evals only (with a single job)
+            args_find = append_args(deepcopy(args), ['eval.eval_type=find_best'])
+            append_to_lists(
+                exp_name, args_find, exp_meta, exp_name_list, args_list, exp_meta_list)
         else:
-            exp_name_list_l, args_list_l, exp_meta_list_l = [], [], []
-            for eval_epoch in eval_epochs:
-                # this check will only work for fast evals of concrete epochs
-                if os.path.exists(os.path.join(
-                        os.environ['ALFRED_LOGS'],
-                        exp_name,
-                        '{}_results:{}:model_{:02d}:fast.json'.format(
-                            'subgoal' if 'subgoal' in eval_type else 'task',
-                            'valid_seen', # TODO: make it work in a general case
-                            eval_epoch))):
-                    continue
-                args_epoch = append_args(
-                    deepcopy(args),
-                    ['eval.eval_type=fast_eval', 'eval.checkpoint=model_{:02d}.pth'.format(eval_epoch)])
-                append_to_lists(exp_name, args_epoch, exp_meta, exp_name_list_l, args_list_l, exp_meta_list_l)
-            args_select_epoch = append_args(deepcopy(args), ['eval.eval_type=select_best'])
-            append_to_lists(exp_name, args_select_epoch, exp_meta, exp_name_list, args_list, exp_meta_list)
-            exp_name_list += exp_name_list_l
-            args_list += args_list_l
-            exp_meta_list += exp_meta_list_l
+            append_to_lists(
+                exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)
     return exp_name_list, args_list, exp_meta_list

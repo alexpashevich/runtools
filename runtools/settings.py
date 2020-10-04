@@ -23,7 +23,7 @@ MAX_BESTEFFORT_CORES = {GPU_MACHINE: 1000, SHARED_CPU_MACHINE: 100000}
 
 # Scripts to logdir mapping
 SCRIPT_TO_LOGDIR = {
-    'alfred.train.train_seq2seq': 'exp.name',
+    'alfred.train.run': 'exp.name',
     'alfred.eval.eval_seq2seq': 'exp.name',
     'alfred.data.create_data': 'args.data_output',
     'alfred.gen.scripts.augment_trajectories': 'args.data_to',
@@ -38,13 +38,27 @@ SCRIPT_TO_LOGDIR = {
     'rlons.scripts.sim2real': 'train.model.name'
 }
 
+# Scripts to debug mode args mapping
+SCRIPT_TO_DEBUG_ARGS = {
+   'rlons.scripts.collect': 'collect.workers=0',
+   'rlons.scripts.train': 'train.workers=0',
+   'alfred.train.run': 'exp.num_workers=0',
+   'alfred.eval.eval_seq2seq': 'exp.num_workers=0',
+   'alfred.gen.scripts.augment_trajectories': 'args.num_threads=0',
+}
+
+# Scripts to fast epoch mode args mapping
+SCRIPT_TO_FAST_EPOCH_ARGS = {
+   'alfred.train.run': 'exp.fast_epoch=True',
+   'alfred.eval.eval_seq2seq': 'exp.fast_epoch=True',
+}
+
 USED_CODE_DIRS = ('alfred', 'alftools')
 ALLOWED_MODES = ('local', 'render', 'access2-cp', 'edgar', 'gcp')
 
 # settings to control jobs restarting (if they are crashed or not making progress)
 SCRIPT_TO_PROGRESS_WAIT_TIME = {
-    'alfred.train.train_seq2seq': 3*60*60, # 3 hours
-    # 'alfred.train.train_seq2seq': 10, # 10 sec (for debug)
+    'alfred.train.run': 3*60*60, # 3 hours
     'alfred.eval.eval_seq2seq': 20*60, # 10 minutes
     'alfred.gen.scripts.augment_trajectories': 10*60, # 10 minuties
 }

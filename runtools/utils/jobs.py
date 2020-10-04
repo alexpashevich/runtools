@@ -3,38 +3,32 @@ import telegram_send
 
 from runtools.utils import config, system
 from runtools.job.manager import manage
-from runtools.settings import JobStatus
+from runtools.settings import JobStatus, SCRIPT_TO_DEBUG_ARGS, SCRIPT_TO_FAST_EPOCH_ARGS
 
 
-def run_locally(exp_name, args, script, args_file, seed, render, debug, cuda_devices, run_async=False):
+def run_locally(
+        exp_name, args, script, args_file, seed, render, debug, fast_epoch,
+        cuda_devices, run_async=False):
     # log dir creation
     if 'collect' in script and seed is not None:
         args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
     # set up the paths (replace the paths from USED_CODE_DIRS with the ones in a cached code dir)
     python_path = system.get_python_path(exp_name)
     args = config.append_log_dir(args, exp_name, args_file, script)
-    script = 'PYTHONPATH={} python3 -u -m {} {}'.format(python_path, script, args)
+    command = 'PYTHONPATH={} python3 -u -m {} {}'.format(python_path, script, args)
     if cuda_devices is not None:
-        script = 'CUDA_VISIBLE_DEVICES={} {}'.format(cuda_devices, script)
+        command = 'CUDA_VISIBLE_DEVICES={} {}'.format(cuda_devices, command)
         if 'alfred.eval' in script and cuda_devices.isdigit():
-            script += ' eval.x_display={}'.format(cuda_devices)
-    # if render and 'collect' in script:
-    #     script += ' collect.env.render=True'
-    if debug:
-        if 'rlons.scripts.collect' in script:
-            script += ' collect.workers=0'
-        elif 'rlons.scripts.train' in script:
-            script += ' train.workers=0'
-        elif 'alfred.train' in script or 'alfred.eval' in script:
-            script += ' exp.num_workers=0'
-        elif 'alfred.gen' in script:
-            script += ' args.num_threads=0'
-        else:
-            script += ' train.workers=0 collect.workers=0'
-    print('Running:\n' + script)
+            command += ' eval.x_display={}'.format(cuda_devices)
+    if debug and script in SCRIPT_TO_DEBUG_ARGS:
+        command += ' {}'.format(SCRIPT_TO_DEBUG_ARGS[script])
+    if fast_epoch and script in SCRIPT_TO_FAST_EPOCH_ARGS:
+        command += ' {}'.format(SCRIPT_TO_FAST_EPOCH_ARGS[script])
+
+    print('Running:\n' + command)
     if not render and 'DISPLAY' in os.environ and 'egl' in args:
         del os.environ['DISPLAY']
-    os.system(script)
+    os.system(command)
 
 
 def init_on_cluster(exp_name, args, script, args_file, job_class):
