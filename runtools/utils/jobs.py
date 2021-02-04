@@ -7,12 +7,9 @@ from runtools.settings import JobStatus, SCRIPT_TO_DEBUG_ARGS, SCRIPT_TO_FAST_EP
 
 
 def run_locally(
-        exp_name, args, script, args_file, seed, render, debug, fast_epoch,
+        exp_name, args, script, args_file, render, debug, fast_epoch,
         cuda_devices, run_async=False):
-    # log dir creation
-    if 'collect' in script and seed is not None:
-        args = config.append_args(args, ['{}={}'.format('collect.env.seed', seed)])
-    # set up the paths (replace the paths from USED_CODE_DIRS with the ones in a cached code dir)
+    # set up the paths (replace the paths from global dir with the ones in a cached code dir)
     python_path = system.get_python_path(exp_name)
     args = config.append_log_dir(args, exp_name, args_file, script)
     command = 'PYTHONPATH={} python3 -u -m {} {}'.format(python_path, script, args)

@@ -19,20 +19,33 @@ def get_python_path(exp_name):
 def checkout_repo(repo, commit_tag):
     from git import Git
     g = Git(repo)
-    g.checkout('.')
+    # g.checkout('.')
+    g.stash()
     g.checkout(commit_tag)
     print('checkouted {} to {}'.format(repo, commit_tag))
 
 
-def create_cache_dir(exp_name_list, cache_mode, git_commit_alfred, source_exp=None):
+def create_cache_dir(
+        exp_name_list, cache_mode, git_commit_alfred, first_exp_args, source_exp=None):
+    if exp_name_list[0].startswith('eval/'):
+        # for eval exps, sym link to their train code by default
+        if source_exp is None:
+            source_exp = first_exp_args.split('eval.exp=')[1].split(' ')[0]
+            print('Using the code from experiment {}'.format(source_exp))
+        elif source_exp == 'none':
+            source_exp = None
+            print('Using the latest code')
     cache_dir = os.path.join(CACHEDIR_PATH, exp_name_list[0])
     assert cache_mode in ('keep', 'copy', 'link')
     if cache_mode == 'keep':
         if not os.path.exists(cache_dir) and not os.path.islink(cache_dir):
-            copy_code_dir(cache_dir, git_commit_alfred, sym_link=True, source_exp=source_exp)
+            copy_code_dir(
+                cache_dir, git_commit_alfred, sym_link=True, source_exp=source_exp)
         return
 
-    copy_code_dir(cache_dir, git_commit_alfred, sym_link=(cache_mode == 'link'), source_exp=source_exp)
+    copy_code_dir(
+        cache_dir, git_commit_alfred,
+        sym_link=(cache_mode == 'link'), source_exp=source_exp)
 
     # cache only the first exp directory, others are sym links to it
     for exp_id, exp_name in enumerate(exp_name_list[1:]):
@@ -43,6 +56,7 @@ def create_cache_dir(exp_name_list, cache_mode, git_commit_alfred, source_exp=No
 
 def copy_code_dir(cache_dir, commit_alfred, sym_link=False, source_exp=None):
     source_code_dir = os.path.join(CACHEDIR_PATH, source_exp) if source_exp else CODEDIR_PATH
+    assert os.path.exists(source_code_dir), 'Directory {} does not exists'.format(source_code_dir)
     print('{} code to {} from {}'.format('Symlinking' if sym_link else 'Copying', cache_dir, source_code_dir))
     # first free the distination code dir if it exists
     if os.path.exists(cache_dir):

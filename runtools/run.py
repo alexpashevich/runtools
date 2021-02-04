@@ -22,17 +22,19 @@ def parse_config():
                         help='Seed to use.')
     parser.add_argument('-fi', '--first_exp_id', type=int, default=1,
                         help='First experiment name id.')
-    parser.add_argument('-sc', '--script', default='alfred.train.run',
+    parser.add_argument('-sc', '--script', default='alfred.train.train',
                         help='The python script to run with run_with_pytorch.sh.')
     parser.add_argument('-g', '--grid', type=json.loads, default=None,
-                        help='Dictionary with grid of hyperparameters to run experiments with. ' \
-                        'It should be a dictionary with key equal to the argument you want to ' \
-                        'gridsearch on and value equal to list of values you want it to be.')
+                        help='Dictionary with grid of parameters to run experiments with. ' \
+                        'It should be a dictionary where keys equal to arguments you want ' \
+                        'to gridsearch on and values equal to a list of values.')
     # what to do with the code
     parser.add_argument('-cm', '--cache_mode', default=None,
                         help='Cache mode, should be in {"keep", "link", "copy"}')
     parser.add_argument('-sym', '--sym_link_to_exp', default=None,
-                        help='Sym link the code to the one of the specified experiment (must be a valid one)')
+                        help='Sym link the code to the one of the specified experiment. ' \
+                        'By default, eval exps will sym link to their train dirs.' \
+                        'You can pass "master" in order to avoid it.')
     parser.add_argument('-gca', '--git_commit_alfred', type=str, default=None,
                         help='Git commit to checkout the ALFRED repo to.')
     # where to run them
@@ -41,7 +43,7 @@ def parse_config():
     parser.add_argument('-ma', '--machines', type=str, default='f',
                         help='Which machines to use on the clusters, ' \
                         'the choice should be in {"s", "f"} (slow/gpu24-27 or fast/gpu1-22).')
-    parser.add_argument('-di', '--cuda_devices', type=str, default=None,
+    parser.add_argument('-di', '--cuda_devices', type=str, default='0',
                         help='Which GPU(s) to use.')
     parser.add_argument('-b', '--besteffort', default=False, action='store_true',
                         help='Whether to run in besteffort mode')
@@ -51,7 +53,7 @@ def parse_config():
                         help='Job wallclock time to be set on the cluster.')
     # evaluation stuff (new)
     parser.add_argument('-et', '--eval_type', type=str, default=None, choices=(
-        'task', 'task-select', 'task-fasts', 'task-find',
+        'task', 'task-select', 'task-fasts', 'task-find', 'task-range',
         'subgoal', 'subgoal-select', 'subgoal-fasts', 'subgoal-find'),
                         help='Type of alfred evaluation')
     # misc
@@ -83,7 +85,8 @@ def main():
     if config.grid:
         assert isinstance(config.grid, dict)
         num_exps *= np.prod([len(l) for l in config.grid.values()])
-    exp_name_list, args_list, exp_meta_list = get.exp_lists(config, config.first_exp_id, num_exps)
+    exp_name_list, args_list, exp_meta_list = get.exp_lists(
+        config, config.first_exp_id, num_exps)
 
     if config.eval_type is not None:
         # the user is asking for evaluation
@@ -100,7 +103,8 @@ def main():
     cache_mode = get.cache_mode(
         config, on_cluster=(mode in ('edgar', 'access2-cp') or config.consecutive_jobs))
     system.create_cache_dir(
-        exp_name_list, cache_mode, config.git_commit_alfred, config.sym_link_to_exp)
+        exp_name_list, cache_mode, config.git_commit_alfred,
+        args_list[0], config.sym_link_to_exp)
 
     # to make sure that eval-select is launched after all eval-fasts
     if mode in ('local', 'render') and config.eval_type is not None:
@@ -120,21 +124,10 @@ def main():
                 config.consecutive_jobs[exp_id], mode, config.besteffort, config.num_cores)
         if job_mode in ('local', 'render'):
             # run locally
-            # assert len(exp_name_list) == 1
             render = (job_mode == 'render')
-            # TODO: add an option to enforce message sending in the local mode
-            # send_report_message(exp_name, exp_meta, [config.seed], mode)
-            # cuda_device = config.cuda_devices[0] if isinstance(config.cuda_devices, list) else None
             jobs.run_locally(
-                exp_name, args, script, config.files[0], config.seed,
+                exp_name, args, script, config.files[0],
                 render, config.debug, config.fast_epoch, config.cuda_devices)
-        # elif job_mode == 'gcp':
-        #     assert isinstance(config.cuda_devices, list)
-        #     cuda_device = config.cuda_devices[exp_id % len(exp_name_list)]
-        #     jobs.run_locally(
-        #         exp_name, args, script, config.files[0], config.seed,
-        #         False, config.debug, cuda_device, run_async=True)
-
         else:
             # prepare a job to run on INRIA cluster
             p_options = get.p_option(job_mode, config.machines)

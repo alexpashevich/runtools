@@ -25,9 +25,6 @@ def p_option(mode, machines):
         elif machines == '11':
             hosts = 'cast(substring(host from \'\"\'\"\'gpuhost(.+)\'\"\'\"\') as int) BETWEEN 11 AND 11'
         elif machines == 'e':
-            # TODO: uncomment
-            # hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost11\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
-            # hosts = 'host=\'\"\'\"\'gpuhost9\'\"\'\"\' or host=\'\"\'\"\'gpuhost12\'\"\'\"\' or host=\'\"\'\"\'gpuhost13\'\"\'\"\' or host=\'\"\'\"\'gpuhost15\'\"\'\"\''
             hosts = 'host=\'\"\'\"\'gpuhost11\'\"\'\"\''
         if machines not in ('p', 'x', 'e'):
             hosts += ' and gpumodel!=\'\"\'\"\'gtx1080\'\"\'\"\' and gpumem>10000'
@@ -36,7 +33,6 @@ def p_option(mode, machines):
     if machines == 's':
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 1 AND 14'
     elif machines == 'f':
-        # hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 21 AND 54'
         hosts = 'cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 39 AND 54 or cast(substring(host from \'\"\'\"\'node(.+)-\'\"\'\"\') as int) BETWEEN 21 AND 37'
     else:
         raise ValueError('machines descired type {} is unknown'.format(machines))
@@ -55,20 +51,16 @@ def job_mode(mode):
 
 def cache_mode(config, on_cluster):
     # all modes:
-    # cache_mode == keep -> check if cache_code dir exists. if yes, do nothing. if not, create logdir.
+    # cache_mode == keep: check if cache_code dir exists. yes: do nothing. no: create logdir.
     # local:
     # default cache_mode is symlink: remove the cache_code dir and create a symlink
     # cluster:
-    # default cache_mode is copy: remove the cache_code dir and copy the current code dir there
+    # default cache_mode is copy: remove the cache_code dir and copy the current code dir
     if config.cache_mode is not None:
         return config.cache_mode
     if config.fast_epoch:
         return 'link'
     cache_mode = 'copy'
-    # if not on_cluster:
-    #     cache_mode = 'link'
-    # elif on_cluster:
-    #     cache_mode = 'copy'
     return cache_mode
 
 
@@ -165,9 +157,11 @@ def exp_lists(config, first_exp_id, num_exps):
             exp_name += '_v' + str(first_exp_id + idx)
         for seed in all_seeds:
             exp_name_cur, args_cur = deepcopy(exp_name), deepcopy(args)
-            if 'alfred.train.run' in script:
+            if 'alfred.train.' in script:
                 args_cur = append_args(args_cur, ['train.seed={}'.format(seed)])
-                if config.seed is not None:
+                seed_already_in_name = ('_s' in exp_name_cur and
+                                        (exp_name_cur.split('_s')[-1]).isdigit())
+                if config.seed is not None and not seed_already_in_name:
                     exp_name_cur += '_s{}'.format(seed)
 
             exp_name_list.append(exp_name_cur)
@@ -199,27 +193,38 @@ def get_gridargs_list(grid):
         gridargs_list = new_gridargs_list
     return gridargs_list
 
-def append_to_lists(exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
+
+def append_to_lists(
+        exp_name, new_exp_args, old_exp_meta, exp_name_list, args_list, exp_meta_list):
     new_exp_meta = deepcopy(old_exp_meta)
     new_exp_meta['args'] = new_exp_args
     new_exp_meta['full_command'] = old_exp_meta['full_command'].replace(
         old_exp_meta['args'], new_exp_meta['args'])
     new_exp_name = 'eval/{}'.format(exp_name)
-    # if 'eval.subgoals=all' in new_exp_args:
-    #     new_exp_name += '_subgoal'
-    # if 'eval.eval_type=select_best' in new_exp_args:
-    #     new_exp_name += '_select'
-    # if 'eval.checkpoint=model_' in new_exp_args:
-    #     eval_epoch = int(new_exp_args.split('eval.checkpoint=model_')[1].split('.pth')[0])
-    #     new_exp_name += '_m{:02d}'.format(eval_epoch)
-    # if 'eval.eval_type=fast_eval' in new_exp_args:
-    #     new_exp_name += '_fast'
-    # if 'eval.eval_split=' in new_exp_args:
-    #     eval_split = new_exp_args.split('eval.eval_split=')[1].split(' ')[0]
-    #     new_exp_name += '_{}'.format(eval_split)
+    if 'eval.subgoals=all' in new_exp_args:
+        new_exp_name += '_subgoal'
+    else:
+        new_exp_name += '_task'
+    if 'eval.eval_type=select_best' in new_exp_args:
+        new_exp_name += '_select'
+    if 'eval.eval_type=find_best' in new_exp_args:
+        new_exp_name += '_find'
+    if 'eval.eval_type=range' in new_exp_args:
+        new_exp_name += '_range'
+    if 'eval.checkpoint=' in new_exp_args:
+        eval_checkpoint = new_exp_args.split('eval.checkpoint=')[1].split('.pth')[0]
+        eval_checkpoint = eval_checkpoint.replace('model_', 'm_')
+        new_exp_name += '_{}'.format(eval_checkpoint)
+    if 'eval.split=' in new_exp_args:
+        eval_split = new_exp_args.split('eval.split=')[1].split(' ')[0]
+        new_exp_name += '_{}'.format(eval_split)
+    if 'exp.data.valid=' in new_exp_args:
+        eval_data = new_exp_args.split('exp.data.valid=')[1].split(' ')[0]
+        new_exp_name += '_{}'.format(eval_data.split('/')[-1])
     exp_name_list.append(new_exp_name)
     args_list.append(new_exp_args)
     exp_meta_list.append(new_exp_meta)
+
 
 def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_type):
     exp_name_list, args_list, exp_meta_list = [], [], []
@@ -248,6 +253,11 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
             args_find = append_args(deepcopy(args), ['eval.eval_type=find_best'])
             append_to_lists(
                 exp_name, args_find, exp_meta, exp_name_list, args_list, exp_meta_list)
+        elif '-range' in eval_type:
+            # we should several normal evals
+            args_range = append_args(deepcopy(args), ['eval.eval_type=range'])
+            append_to_lists(
+                exp_name, args_range, exp_meta, exp_name_list, args_list, exp_meta_list)
         else:
             append_to_lists(
                 exp_name, args, exp_meta, exp_name_list, args_list, exp_meta_list)

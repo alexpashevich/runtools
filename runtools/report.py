@@ -15,9 +15,11 @@ def get_args():
     # whether to look for a subgoals evaluation (by default task evaluation)
     parser.add_argument('--task', '-t', action='store_true', default=False)
     parser.add_argument('--select_only', '-so', action='store_true', default=False)
-    parser.add_argument('--split', '-sp', type=str, default='valid_seen')
     parser.add_argument('--fast_eval', '-f', action='store_true', default=False)
     parser.add_argument('--print_each_exp', '-p', action='store_true', default=False)
+    parser.add_argument('--split_train', '-spt', action='store_true', default=False)
+    parser.add_argument('--split_unseen', '-spu', action='store_true', default=False)
+    parser.add_argument('--dataset', '-d', default=None)
     args = parser.parse_args()
     return args
 
@@ -26,6 +28,16 @@ def main():
     args = get_args()
     eval_type = 'task' if args.task else 'subgoal'
     eval_mode = 'fast_eval' if args.fast_eval else 'normal'
+    split = 'valid_seen'
+    if args.split_unseen:
+        assert not args.split_train
+        split = 'valid_unseen'
+    elif args.split_train:
+        assert not args.split_unseen
+        split = 'train'
+    if args.dataset is not None:
+        split = '{}:{}'.format(split, args.dataset)
+        # split = args.dataset
     exp_results = {}
     seed_results_best = {}
     for exp_path in args.exps:
@@ -36,7 +48,7 @@ def main():
             eval_json = json.load(f)
         for eval_epoch, eval_dict in eval_json.items():
             try:
-                results = eval_dict[args.split][eval_type][eval_mode]['results']
+                results = eval_dict[split][eval_type][eval_mode]['results']
                 epoch_path = os.path.join(exp_path, eval_epoch)
                 # print('Loaded evaluation of {}'.format(epoch_path))
                 # prepare the string to be printed
@@ -46,7 +58,7 @@ def main():
                     sr_plw_avg = results['path_length_weighted_success_rate'] * 100
                     gc_sr = results['goal_condition_success']['goal_condition_success_rate']
                     results_str = 'GC = {:.1f}%'.format(gc_sr * 100)
-                    num = 'N/A'
+                    sr_count = results['success']['num_evals']
                 else:
                     sr_sum, sr_plw_sum, sr_count, results_str = 0, 0, 0, '\n'
                     for sg_name, sg_dict in sorted(results.items()):
@@ -58,7 +70,11 @@ def main():
                     sr_avg = sr_sum / sr_count * 100
                     sr_plw_avg = sr_plw_sum / sr_count * 100
                 exp_results[epoch_path] = {
-                    'sr': sr_avg, 'plw': sr_plw_avg, 'str': results_str.strip(', '), 'num': sr_count}
+                    'sr': sr_avg,
+                    'plw': sr_plw_avg,
+                    'str': results_str.strip(', '),
+                    'num': sr_count}
+
                 # prepare results for mean/std exp comparison
                 exp_name = os.path.basename(exp_path)
                 if exp_name not in seed_results_best:
@@ -71,7 +87,7 @@ def main():
     exp_results_sorted = sorted(exp_results.items(), key=lambda x: -x[1]['sr'])
     if args.print_each_exp:
         for exp_name, exp_dict in exp_results_sorted:
-            print(colored('Exp {} (avg SR = {:.1f}%, avg SRPLW = {:.1f}%, num trials  {}): {}'.format(
+            print(colored('Exp {} (avg SR = {:.1f}%, avg SRPLW = {:.1f}%, num trials {}): {}'.format(
                 exp_name, exp_dict['sr'], exp_dict['plw'], exp_dict['num'], exp_dict['str']), 'green'))
         print('')
 
