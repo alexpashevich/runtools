@@ -28,6 +28,7 @@ SCRIPT_TO_LOGDIR = {
     'alfred.train.dagger': 'exp.name',
     'alfred.eval.eval_seq2seq': 'exp.name',
     'alfred.data.create_lmdb': 'args.data_output',
+    'alfred.data.process_tests': 'args.data_output',
     'alfred.gen.scripts.augment_trajectories': 'args.data_to',
     'alfred.gen.scripts.generate_trajectories': 'args.name',
     'contrastive.howto100m.train': 'exp.name',
@@ -50,7 +51,8 @@ SCRIPT_TO_DEBUG_ARGS = {
    'alfred.train.dagger': 'exp.num_workers=0 dagger.num_workers=0',
    'alfred.eval.eval_seq2seq': 'exp.num_workers=0',
    'alfred.gen.scripts.augment_trajectories': 'args.num_threads=0',
-    'alfred.data.create_lmdb': 'args.num_workers=0',
+   'alfred.data.create_lmdb': 'args.num_workers=0',
+   'detection.train': 'args.num_workers=0',
 }
 
 # Scripts to fast epoch mode args mapping
@@ -59,7 +61,8 @@ SCRIPT_TO_FAST_EPOCH_ARGS = {
    'alfred.train.run': 'exp.fast_epoch=True',
    'alfred.train.dagger': 'exp.fast_epoch=True',
    'alfred.eval.eval_seq2seq': 'exp.fast_epoch=True',
-    'alfred.data.create_lmdb': 'args.fast_epoch=True',
+   'alfred.data.create_lmdb': 'args.fast_epoch=True',
+   'detection.train': 'args.fast_epoch=True',
 }
 
 USED_CODE_DIRS = ('alfred', 'alftools')

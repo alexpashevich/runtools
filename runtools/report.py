@@ -36,8 +36,11 @@ def main():
         assert not args.split_unseen
         split = 'train'
     if args.dataset is not None:
+        if args.dataset.startswith('lmdb/'):
+            args.dataset = args.dataset.replace('lmdb/', 'lmdb:')
+        elif 'lmdb' not in args.dataset:
+            args.dataset = 'lmdb:' + args.dataset
         split = '{}:{}'.format(split, args.dataset)
-        # split = args.dataset
     exp_results = {}
     seed_results_best = {}
     for exp_path in args.exps:
@@ -48,7 +51,11 @@ def main():
             eval_json = json.load(f)
         for eval_epoch, eval_dict in eval_json.items():
             try:
-                results = eval_dict[split][eval_type][eval_mode]['results']
+                if split in eval_dict:
+                    eval_split = eval_dict[split]
+                elif split + ';lang' in eval_dict:
+                    eval_split = eval_dict[split + ';lang']
+                results = eval_split[eval_type][eval_mode]['results']
                 epoch_path = os.path.join(exp_path, eval_epoch)
                 # print('Loaded evaluation of {}'.format(epoch_path))
                 # prepare the string to be printed
