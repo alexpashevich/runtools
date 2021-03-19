@@ -220,7 +220,7 @@ def append_to_lists(
         new_exp_name += '_{}'.format(eval_split)
     if 'exp.data.valid=' in new_exp_args:
         eval_data = new_exp_args.split('exp.data.valid=')[1].split(' ')[0]
-        new_exp_name += '_{}'.format(eval_data.split('/')[-1])
+        new_exp_name += '_{}'.format(eval_data.split('/')[-1].split(';')[0])
     exp_name_list.append(new_exp_name)
     args_list.append(new_exp_args)
     exp_meta_list.append(new_exp_meta)
@@ -230,7 +230,7 @@ def eval_exp_lists(exp_name_list_orig, args_list_orig, exp_meta_list_orig, eval_
     exp_name_list, args_list, exp_meta_list = [], [], []
     for exp_name, args, exp_meta in zip(
             exp_name_list_orig, args_list_orig, exp_meta_list_orig):
-        assert exp_meta['script'] == 'alfred.eval.eval_seq2seq'
+        assert exp_meta['script'] in ('alfred.eval.eval_seq2seq', 'alfred.eval.leaderboard')
         args = append_args(args, ['eval.exp={}'.format(exp_name)])
         if 'subgoal' in eval_type:
             # subgoal evaluation
